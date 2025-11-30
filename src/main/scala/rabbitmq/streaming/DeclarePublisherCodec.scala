@@ -1,0 +1,52 @@
+package rabbitmq.streaming
+
+import java.nio.ByteBuffer
+
+object DeclarePublisherCodec {
+
+  def encode(request: DeclarePublisherRequest, correlationId: Int): ByteBuffer = {
+    // Estimate size: 1 (publisherId) + 2 + stream.length + 2 + publisherReference.length (if present)
+    val fixedSize = 2 +  // Key   
+                    2 +  // Version   
+                    4 +  // CorrelationId
+                    1    // PublisherId
+
+    val streamBytes = request.stream.getBytes("UTF-8")
+    val streamSize = 2 + streamBytes.length
+    val publisherRefSize = request.publisherReference match {
+      case Some(ref) =>
+        2 + ref.getBytes("UTF-8").length
+      case None =>
+        2 // just the length indicator
+    }
+    val totalSize = fixedSize + streamSize + publisherRefSize
+    val buffer = Protocol.allocate(totalSize)
+
+    buffer.putShort(Protocol.Commands.DeclarePublisher)
+    buffer.putShort(Protocol.ProtocolVersion)
+    buffer.putInt(correlationId)
+    buffer.put(request.publisherId)
+
+    Protocol.writeOptionalString(buffer, request.publisherReference)
+    Protocol.writeString(buffer, request.stream)
+
+    println(s"DEBUG: Buffer position before return: ${buffer.position()}")
+
+    buffer
+  }
+  
+  def decode(buffer: ByteBuffer): Either[String, DeclarePublisherResponse] = {
+    for {
+        key <- Right(buffer.getShort()).filterOrElse(
+        _ == Protocol.Commands.DeclarePublisherResponse,
+        s"Invalid key field"
+        )
+        version <- Right(buffer.getShort()).filterOrElse(
+        _ == Protocol.ProtocolVersion,
+        s"Incompatible protocol version"
+        )
+        correlationId = buffer.getInt()
+        responseCode  = buffer.getShort()
+    } yield DeclarePublisherResponse(correlationId.toInt, responseCode)
+  }
+}

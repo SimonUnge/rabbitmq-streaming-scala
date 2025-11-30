@@ -1,0 +1,34 @@
+# sbt
+target/
+project/target/
+project/project/
+
+# Metals / Bloop / BSP
+.metals/
+.bloop/
+metals.sbt
+.bsp/
+
+# IDEs
+.vscode/
+.idea/
+*.iml
+.DS_Store
+
+# Scala / Java
+*.class
+*.log
+*.jar
+*.war
+*.ear
+
+# Temporary files
+*.swp
+*.swo
+*~
+.cache
+.history
+
+# OS files
+.DS_Store
+Thumbs.db
