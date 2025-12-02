@@ -1,6 +1,8 @@
 package rabbitmq.streaming
+import java.nio.ByteBuffer
 import java.net.{Socket, InetSocketAddress}
-import java.io.{BufferedInputStream, BufferedOutputStream}
+import java.io.{BufferedInputStream, BufferedOutputStream, DataInputStream, DataOutputStream}
+import scala.util.Try
 
 case class ConnectionConfig(
     host: String = "localhost",
@@ -20,13 +22,34 @@ class Connection(config: ConnectionConfig) {
     s
   }
 
-  private val in: BufferedInputStream = new BufferedInputStream(
-    socket.getInputStream
+  private val in = new DataInputStream (
+    new BufferedInputStream(socket.getInputStream)
   )
-  private val out: BufferedOutputStream = new BufferedOutputStream(
-    socket.getOutputStream
+  private val out = new DataOutputStream(
+    new BufferedOutputStream(socket.getOutputStream)
   )
-  // Method to send a frame
-  // Method to receive a frame
-  // Method to close connection
+
+  def sendFrame(frame: ByteBuffer): Unit = {
+    val payloadSize = frame.position()
+    val totalSize = 4 + payloadSize
+    out.writeInt(totalSize)
+    out.write(frame.array(), 0, payloadSize)
+    out.flush()
+  }
+
+  def receiveFrame(): (Short, Short, ByteBuffer) = {
+    val totalSize = in.readInt()
+    val payloadSize = totalSize - 4
+    val buffer = Protocol.allocate(payloadSize)
+    in.readFully(buffer.array())
+    val key = buffer.getShort()
+    val version = buffer.getShort()
+    (key, version, buffer)
+  }
+
+  def close(): Unit = {
+    Try(in.close())
+    Try(out.close())
+    Try(socket.close())    
+  } 
 }

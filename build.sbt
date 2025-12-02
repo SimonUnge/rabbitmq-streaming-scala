@@ -2,7 +2,7 @@ name := "rabbitmq-streaming-scala"
 
 version := "0.1.0"
 
-scalaVersion := "2.13.12"
+scalaVersion := "2.13.18"
 
 libraryDependencies ++= Seq(
   // We'll add dependencies as we need them
