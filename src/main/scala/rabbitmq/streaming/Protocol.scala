@@ -8,6 +8,8 @@ object Protocol {
     object Commands {
         val DeclarePublisher: Short = 0x0001
         val DeclarePublisherResponse: Short = 0x8001.toShort
+        val PeerProperties: Short = 0x0011
+        val PeerPropertiesResponse: Short = 0x8011.toShort
     }
 
     object ResponseCodes {
