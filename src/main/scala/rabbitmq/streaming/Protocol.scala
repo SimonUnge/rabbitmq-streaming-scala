@@ -10,6 +10,8 @@ object Protocol {
         val DeclarePublisherResponse: Short = 0x8001.toShort
         val PeerProperties: Short = 0x0011
         val PeerPropertiesResponse: Short = 0x8011.toShort
+        val SaslHandshake: Short = 0x0012
+        val SaslHandshakeResponse: Short = 0x8012.toShort
     }
 
     object ResponseCodes {
