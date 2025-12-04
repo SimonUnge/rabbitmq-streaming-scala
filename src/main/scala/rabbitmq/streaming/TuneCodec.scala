@@ -1,0 +1,34 @@
+package rabbitmq.streaming
+import java.nio.ByteBuffer
+
+object TuneCodec {
+  // Client receives from server
+  def decode(buffer: ByteBuffer): Either[String, TuneRequest] = {
+    for {
+      key <- Right(buffer.getShort()).filterOrElse(
+        _ == Protocol.Commands.TuneRequest,
+        s"Invalid key field"
+      )
+      version <- Right(buffer.getShort()).filterOrElse(
+        _ == Protocol.ProtocolVersion,
+        s"Incompatible protocol version"
+      )
+      frameMax = buffer.getInt()
+      heartbeat = buffer.getInt()
+    } yield TuneRequest(frameMax, heartbeat)
+  }
+
+  // Client sends back to server
+  def encode(tune: TuneRequest): ByteBuffer = {
+    val totalSize = 2 + // Key
+      2 + // Version
+      4 + // FrameMax
+      4 // Heartbeat
+    val buffer = Protocol.allocate(totalSize)
+    buffer.putShort(Protocol.Commands.TuneRequest)
+    buffer.putShort(Protocol.ProtocolVersion)
+    buffer.putInt(tune.frameMax)
+    buffer.putInt(tune.heartbeat)
+    buffer
+  }
+}

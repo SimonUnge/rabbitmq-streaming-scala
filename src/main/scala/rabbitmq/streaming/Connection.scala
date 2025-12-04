@@ -31,19 +31,18 @@ class Connection(config: ConnectionConfig) {
 
   def sendFrame(frame: ByteBuffer): Unit = {
     val payloadSize = frame.position()
-    val totalSize = 4 + payloadSize
-    out.writeInt(totalSize)
+    out.writeInt(payloadSize)
     out.write(frame.array(), 0, payloadSize)
     out.flush()
   }
 
   def receiveFrame(): (Short, Short, ByteBuffer) = {
-    val totalSize = in.readInt()
-    val payloadSize = totalSize - 4
+    val payloadSize = in.readInt()
     val buffer = Protocol.allocate(payloadSize)
     in.readFully(buffer.array())
     val key = buffer.getShort()
     val version = buffer.getShort()
+    buffer.position(0)
     (key, version, buffer)
   }
 

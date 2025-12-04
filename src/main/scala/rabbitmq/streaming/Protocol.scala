@@ -2,6 +2,7 @@ package rabbitmq.streaming
 
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
+import scala.util.control.Exception.By
 
 object Protocol {
     
@@ -12,6 +13,11 @@ object Protocol {
         val PeerPropertiesResponse: Short = 0x8011.toShort
         val SaslHandshake: Short = 0x0012
         val SaslHandshakeResponse: Short = 0x8012.toShort
+        val SaslAuthenticate: Short = 0x0013
+        val SaslAuthenticateResponse: Short = 0x8013.toShort
+        val TuneRequest: Short = 0x0014
+        val Open: Short = 0x0015
+        val OpenResponse: Short = 0x8015.toShort
     }
 
     object ResponseCodes {
@@ -46,5 +52,41 @@ object Protocol {
         val bytes = new Array[Byte](length)
         buffer.get(bytes)
         new String(bytes, "UTF-8")
+    }
+
+    def writeBytes(buffer: ByteBuffer, bytes: Array[Byte]): Unit = {
+        buffer.putInt(bytes.length)
+        buffer.put(bytes)
+    }
+
+    def writeOptionalBytes(buffer: ByteBuffer, bytesOpt: Option[Array[Byte]]): Unit = {
+        bytesOpt match {
+            case Some(bytes) =>
+                writeBytes(buffer, bytes)
+            case None =>
+                buffer.putInt(-1)
+        }
+    }
+
+    def readBytes(buffer: ByteBuffer): Array[Byte] = {
+        val length = buffer.getInt()
+        val bytes = new Array[Byte](length)
+        buffer.get(bytes)
+        bytes
+    }
+
+    def readOptionalBytes(buffer: ByteBuffer): Option[Array[Byte]] = {
+        if (!buffer.hasRemaining) {
+            None
+        } else {
+            val length = buffer.getInt()
+            if (length == -1) {
+                None
+            } else {
+                val bytes = new Array[Byte](length)
+                buffer.get(bytes)
+                Some(bytes)
+            }
+        }
     }
 }
