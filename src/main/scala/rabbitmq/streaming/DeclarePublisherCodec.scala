@@ -9,18 +9,18 @@ object DeclarePublisherCodec {
       correlationId: Int
   ): ByteBuffer = {
     // Estimate size: 1 (publisherId) + 2 + stream.length + 2 + publisherReference.length (if present)
-    val fixedSize = 2 + // Key
-      2 + // Version
-      4 + // CorrelationId
-      1 // PublisherId
+    val fixedSize = Protocol.Sizes.Key + 
+      Protocol.Sizes.Version + 
+      Protocol.Sizes.CorrelationId + 
+      Protocol.Sizes.PublisherId
 
     val streamBytes = request.stream.getBytes("UTF-8")
-    val streamSize = 2 + streamBytes.length
+    val streamSize = Protocol.Sizes.StringLength + streamBytes.length
     val publisherRefSize = request.publisherReference match {
       case Some(ref) =>
-        2 + ref.getBytes("UTF-8").length
+        Protocol.Sizes.StringLength + ref.getBytes("UTF-8").length
       case None =>
-        2 // just the length indicator
+        Protocol.Sizes.StringLength // just the length indicator
     }
     val totalSize = fixedSize + streamSize + publisherRefSize
     val buffer = Protocol.allocate(totalSize)

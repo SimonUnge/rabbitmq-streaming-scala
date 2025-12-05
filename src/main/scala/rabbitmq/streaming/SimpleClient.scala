@@ -4,10 +4,10 @@ import java.nio.ByteBuffer
 object SimpleClient {
   def main(args: Array[String]): Unit = {
     val config = ConnectionConfig(
-      host = "ec2-3-101-65-153.us-west-1.compute.amazonaws.com",
-      port = 5552,
-      username = "kingkong",
-      password = "godzilla"
+      host = sys.env.getOrElse("RABBITMQ_HOST", "localhost"),
+      port = sys.env.get("RABBITMQ_PORT").map(_.toInt).getOrElse(5552),
+      username = sys.env.getOrElse("RABBITMQ_USERNAME", "guest"),
+      password = sys.env.getOrElse("RABBITMQ_PASSWORD", "guest")
     )
 
     val connection = new Connection(config)
@@ -109,7 +109,8 @@ object SimpleClient {
       receiveAndDecode(CreateCodec.decode) match {
         case Right(resp) if resp.responseCode == Protocol.ResponseCodes.OK =>
           println(s"Stream created!")
-        case Right(resp) if resp.responseCode == Protocol.ResponseCodes.StreamAlreadyExists =>
+        case Right(resp)
+            if resp.responseCode == Protocol.ResponseCodes.StreamAlreadyExists =>
           println(s"Stream Already Exists!")
         case Right(resp) =>
           throw new Exception(s"Create failed with code: ${resp.responseCode}")

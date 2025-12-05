@@ -6,9 +6,9 @@ object SaslHandshakeCodec {
 
   def encode(correlationId: Int): ByteBuffer = {
     // Fixed size: 2 (key) + 2 (version) + 4 (correlationId)
-    val totalSize = 2 + // Key
-      2 + // Version
-      4 // CorrelationId
+    val totalSize = Protocol.Sizes.Key +
+      Protocol.Sizes.Version +
+      Protocol.Sizes.CorrelationId
 
     val buffer = Protocol.allocate(totalSize)
 

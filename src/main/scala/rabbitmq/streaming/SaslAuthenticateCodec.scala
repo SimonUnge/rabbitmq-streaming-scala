@@ -8,14 +8,15 @@ object SaslAuthenticateCodec {
       request: SaslAuthenticateRequest,
       correlationId: Int
   ): ByteBuffer = {
-    val fixedSize = 2 + // Key
-      2 + // Version
-      4 // CorrelationId
+    val fixedSize = Protocol.Sizes.Key +
+      Protocol.Sizes.Version +
+      Protocol.Sizes.CorrelationId
 
     val mechanismBytes = request.mechanism.getBytes("UTF-8")
-    val mechanismSize = 2 + mechanismBytes.length
+    val mechanismSize = Protocol.Sizes.StringLength + mechanismBytes.length
 
-    val saslDataSize = 4 + request.saslOpaqueData.length
+    val saslDataSize =
+      Protocol.Sizes.ArrayLength + request.saslOpaqueData.length
 
     val totalSize = fixedSize + mechanismSize + saslDataSize
 

@@ -4,15 +4,16 @@ import java.nio.ByteBuffer
 
 object CreateCodec {
   def encode(request: CreateRequest, correlationId: Int): ByteBuffer = {
-    val fixedSize = 2 + // Key
-      2 + // Version
-      4 // CorrelationId
+    val fixedSize = Protocol.Sizes.Key + 
+      Protocol.Sizes.Version + 
+      Protocol.Sizes.CorrelationId
 
     val streamBytes = request.stream.getBytes("UTF-8")
-    val streamSize = 2 + streamBytes.length
+    val streamSize = Protocol.Sizes.StringLength + streamBytes.length
 
-    val argumentSize = 4 + request.arguments.map { case (key, value) =>
-      2 + key.getBytes("UTF-8").length + 2 + value.getBytes("UTF-8").length
+    val argumentSize = Protocol.Sizes.ArrayLength + request.arguments.map { case (key, value) =>
+      Protocol.Sizes.StringLength + key.getBytes("UTF-8").length + 
+      Protocol.Sizes.StringLength + value.getBytes("UTF-8").length
     }.sum
 
     val totalSize = fixedSize + streamSize + argumentSize

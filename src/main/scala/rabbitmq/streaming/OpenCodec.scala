@@ -6,12 +6,12 @@ object OpenCodec {
 
   def encode(request: OpenRequest, correlationId: Int): ByteBuffer = {
     // Estimate size: 2 (key) + 2 (version) + 4 (correlationId) + properties size
-    val fixedSize = 2 + // Key
-      2 + // Version
-      4 // CorrelationId
+    val fixedSize = Protocol.Sizes.Key + 
+      Protocol.Sizes.Version + 
+      Protocol.Sizes.CorrelationId
 
     val virtualHostBytes = request.virtualHost.getBytes("UTF-8")
-    val virtualHostSize = 2 + virtualHostBytes.length
+    val virtualHostSize = Protocol.Sizes.StringLength + virtualHostBytes.length
 
     val totalSize = fixedSize + virtualHostSize
 

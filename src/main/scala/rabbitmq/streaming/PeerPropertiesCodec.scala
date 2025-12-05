@@ -6,13 +6,14 @@ object PeerPropertiesCodec {
 
   def encode(request: PeerPropertiesRequest, correlationId: Int): ByteBuffer = {
     // Estimate size: 2 (key) + 2 (version) + 4 (correlationId) + properties size
-    val fixedSize = 2 + // Key
-      2 + // Version
-      4 + // CorrelationId
-      4 // Number of properties
+    val fixedSize = Protocol.Sizes.Key +
+      Protocol.Sizes.Version +
+      Protocol.Sizes.CorrelationId +
+      Protocol.Sizes.ArrayLength
 
     val propertiesSize = request.properties.map { case (key, value) =>
-      2 + key.getBytes("UTF-8").length + 2 + value.getBytes("UTF-8").length
+      Protocol.Sizes.StringLength + key.getBytes("UTF-8").length +
+        Protocol.Sizes.StringLength + value.getBytes("UTF-8").length
     }.sum
 
     val totalSize = fixedSize + propertiesSize

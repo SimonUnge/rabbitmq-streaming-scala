@@ -26,10 +26,10 @@ object TuneCodec {
 
   // Client sends back to server
   def encode(tune: TuneRequest): ByteBuffer = {
-    val totalSize = 2 + // Key
-      2 + // Version
-      4 + // FrameMax
-      4 // Heartbeat
+    val totalSize = Protocol.Sizes.Key +
+      Protocol.Sizes.Version +
+      Protocol.Sizes.CorrelationId +
+      Protocol.Sizes.CorrelationId // Heartbeat (same size as CorrelationId)
     val buffer = Protocol.allocate(totalSize)
     buffer.putShort(Protocol.Commands.TuneRequest)
     buffer.putShort(Protocol.ProtocolVersion)
