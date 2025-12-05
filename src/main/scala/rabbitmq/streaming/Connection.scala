@@ -1,7 +1,12 @@
 package rabbitmq.streaming
 import java.nio.ByteBuffer
 import java.net.{Socket, InetSocketAddress}
-import java.io.{BufferedInputStream, BufferedOutputStream, DataInputStream, DataOutputStream}
+import java.io.{
+  BufferedInputStream,
+  BufferedOutputStream,
+  DataInputStream,
+  DataOutputStream
+}
 import scala.util.Try
 
 case class ConnectionConfig(
@@ -22,7 +27,7 @@ class Connection(config: ConnectionConfig) {
     s
   }
 
-  private val in = new DataInputStream (
+  private val in = new DataInputStream(
     new BufferedInputStream(socket.getInputStream)
   )
   private val out = new DataOutputStream(
@@ -42,13 +47,12 @@ class Connection(config: ConnectionConfig) {
     in.readFully(buffer.array())
     val key = buffer.getShort()
     val version = buffer.getShort()
-    buffer.position(0)
     (key, version, buffer)
   }
 
   def close(): Unit = {
     Try(in.close())
     Try(out.close())
-    Try(socket.close())    
-  } 
+    Try(socket.close())
+  }
 }

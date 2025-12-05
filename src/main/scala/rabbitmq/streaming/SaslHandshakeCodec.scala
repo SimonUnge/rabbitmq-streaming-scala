@@ -6,9 +6,9 @@ object SaslHandshakeCodec {
 
   def encode(correlationId: Int): ByteBuffer = {
     // Fixed size: 2 (key) + 2 (version) + 4 (correlationId)
-    val totalSize = 2 +  // Key   
-                    2 +  // Version   
-                    4    // CorrelationId
+    val totalSize = 2 + // Key
+      2 + // Version
+      4 // CorrelationId
 
     val buffer = Protocol.allocate(totalSize)
 
@@ -18,25 +18,31 @@ object SaslHandshakeCodec {
 
     buffer
   }
-  
-  def decode(buffer: ByteBuffer): Either[String, SaslHandshakeResponse] = {
+
+  def decode(
+      buffer: ByteBuffer,
+      expectedKey: Short,
+      expectedVersion: Short
+  ): Either[String, SaslHandshakeResponse] = {
     for {
-        key <- Right(buffer.getShort()).filterOrElse(
-        _ == Protocol.Commands.SaslHandshakeResponse,
+      key <- Either.cond(
+        expectedKey == Protocol.Commands.SaslHandshakeResponse,
+        (),
         s"Invalid key field"
-        )
-        version <- Right(buffer.getShort()).filterOrElse(
-        _ == Protocol.ProtocolVersion,
+      )
+      version <- Either.cond(
+        expectedVersion == Protocol.ProtocolVersion,
+        (),
         s"Incompatible protocol version"
-        )
-        correlationId = buffer.getInt()
-        responseCode  = buffer.getShort()
-        numMechanisms = buffer.getInt()
-        mechanisms <- Right {
-          (0 until numMechanisms).map { _ =>
-            Protocol.readString(buffer)
-          }.toList
-        }
+      )
+      correlationId = buffer.getInt()
+      responseCode = buffer.getShort()
+      numMechanisms = buffer.getInt()
+      mechanisms <- Right {
+        (0 until numMechanisms).map { _ =>
+          Protocol.readString(buffer)
+        }.toList
+      }
     } yield SaslHandshakeResponse(correlationId, responseCode, mechanisms)
   }
 }

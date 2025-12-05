@@ -1,4 +1,5 @@
 package rabbitmq.streaming
+import java.nio.ByteBuffer
 
 object SimpleClient {
   def main(args: Array[String]): Unit = {
@@ -8,91 +9,120 @@ object SimpleClient {
       username = "kingkong",
       password = "godzilla"
     )
-    
+
     val connection = new Connection(config)
     var correlationId = 0
-    
+
+    def receiveAndDecode[T](
+        codec: (ByteBuffer, Short, Short) => Either[String, T]
+    ): Either[String, T] = {
+      val (key, version, buffer) = connection.receiveFrame()
+      codec(buffer, key, version)
+    }
+
     try {
-      println("🔌 Connecting to RabbitMQ...")
-      
+      println("Connecting to RabbitMQ...")
+
       // 1. Peer Properties
-      println("\n1️⃣ Sending Peer Properties...")
+      println("\n Sending Peer Properties...")
       correlationId += 1
-      val peerPropsReq = PeerPropertiesRequest(Map(
-        "product" -> "rabbitmq-streaming-scala",
-        "version" -> "0.1.0",
-        "platform" -> "Scala"
-      ))
-      connection.sendFrame(PeerPropertiesCodec.encode(peerPropsReq, correlationId))
-      val (_, _, peerPropsBuffer) = connection.receiveFrame()
-      PeerPropertiesCodec.decode(peerPropsBuffer) match {
-        case Right(resp) => println(s"✅ Server properties: ${resp.properties}")
-        case Left(err) => throw new Exception(s"Peer Properties failed: $err")
+      val peerPropsReq = PeerPropertiesRequest(
+        Map(
+          "product" -> "rabbitmq-streaming-scala",
+          "version" -> "0.1.0",
+          "platform" -> "Scala"
+        )
+      )
+      connection.sendFrame(
+        PeerPropertiesCodec.encode(peerPropsReq, correlationId)
+      )
+      receiveAndDecode(PeerPropertiesCodec.decode) match {
+        case Right(resp) => println(s"Server properties: ${resp.properties}")
+        case Left(err)   => throw new Exception(s"Peer Properties failed: $err")
       }
-      
+
       // 2. SASL Handshake
-      println("\n2️⃣ SASL Handshake...")
+      println("\nSASL Handshake...")
       correlationId += 1
       connection.sendFrame(SaslHandshakeCodec.encode(correlationId))
-      val (_, _, saslHandshakeBuffer) = connection.receiveFrame()
-      val mechanisms = SaslHandshakeCodec.decode(saslHandshakeBuffer) match {
-        case Right(resp) => 
-          println(s"✅ Available mechanisms: ${resp.mechanisms}")
+      val mechanisms = receiveAndDecode(SaslHandshakeCodec.decode) match {
+        case Right(resp) =>
+          println(s"Available mechanisms: ${resp.mechanisms}")
           resp.mechanisms
         case Left(err) => throw new Exception(s"SASL Handshake failed: $err")
       }
-      
+
       // 3. SASL Authenticate
-      println("\n3️⃣ SASL Authenticate (PLAIN)...")
+      println("\nSASL Authenticate (PLAIN)...")
       correlationId += 1
-      val saslData = s"\u0000${config.username}\u0000${config.password}".getBytes("UTF-8")
+      val saslData =
+        s"\u0000${config.username}\u0000${config.password}".getBytes("UTF-8")
       val saslAuthReq = SaslAuthenticateRequest("PLAIN", saslData)
-      connection.sendFrame(SaslAuthenticateCodec.encode(saslAuthReq, correlationId))
-      val (_, _, saslAuthBuffer) = connection.receiveFrame()
-      SaslAuthenticateCodec.decode(saslAuthBuffer) match {
+      connection.sendFrame(
+        SaslAuthenticateCodec.encode(saslAuthReq, correlationId)
+      )
+      receiveAndDecode(SaslAuthenticateCodec.decode) match {
         case Right(resp) if resp.responseCode == Protocol.ResponseCodes.OK =>
-          println(s"✅ Authentication successful!")
+          println(s"Authentication successful!")
         case Right(resp) =>
-          throw new Exception(s"Authentication failed with code: ${resp.responseCode}")
+          throw new Exception(
+            s"Authentication failed with code: ${resp.responseCode}"
+          )
         case Left(err) => throw new Exception(s"SASL Authenticate failed: $err")
       }
-      
+
       // 4. Tune
-      println("\n4️⃣ Tune negotiation...")
-      val (_, _, tuneBuffer) = connection.receiveFrame()
-      TuneCodec.decode(tuneBuffer) match {
+      println("\nTune negotiation...")
+      receiveAndDecode(TuneCodec.decode) match {
         case Right(tune) =>
-          println(s"✅ Server tune: frameMax=${tune.frameMax}, heartbeat=${tune.heartbeat}")
+          println(
+            s"Server tune: frameMax=${tune.frameMax}, heartbeat=${tune.heartbeat}"
+          )
           // Accept server's values
           connection.sendFrame(TuneCodec.encode(tune))
-          println(s"✅ Sent tune response")
+          println(s"Sent tune response")
         case Left(err) => throw new Exception(s"Tune failed: $err")
       }
-      
+
       // 5. Open
-      println("\n5️⃣ Opening virtual host...")
+      println("\nOpening virtual host...")
       correlationId += 1
       val openReq = OpenRequest("/")
       connection.sendFrame(OpenCodec.encode(openReq, correlationId))
-      val (_, _, openBuffer) = connection.receiveFrame()
-      OpenCodec.decode(openBuffer) match {
+      receiveAndDecode(OpenCodec.decode) match {
         case Right(resp) if resp.responseCode == Protocol.ResponseCodes.OK =>
-          println(s"✅ Virtual host opened!")
-          println(s"   Connection properties: ${resp.connectionProperties}")
+          println(s"Virtual host opened!")
+          println(s"Connection properties: ${resp.connectionProperties}")
         case Right(resp) =>
           throw new Exception(s"Open failed with code: ${resp.responseCode}")
         case Left(err) => throw new Exception(s"Open failed: $err")
       }
-      
-      println("\n🎉 Successfully connected to RabbitMQ!")
-      
+
+      println("\nSuccessfully connected to RabbitMQ!")
+
+      // 6. Create a stream
+      println("\nCreating a stream...")
+      correlationId += 1
+      val streamName = "scalastream"
+      val createReq = CreateRequest(streamName, Map.empty)
+      connection.sendFrame(CreateCodec.encode(createReq, correlationId))
+      receiveAndDecode(CreateCodec.decode) match {
+        case Right(resp) if resp.responseCode == Protocol.ResponseCodes.OK =>
+          println(s"Stream created!")
+        case Right(resp) if resp.responseCode == Protocol.ResponseCodes.StreamAlreadyExists =>
+          println(s"Stream Already Exists!")
+        case Right(resp) =>
+          throw new Exception(s"Create failed with code: ${resp.responseCode}")
+        case Left(err) => throw new Exception(s"Create failed: $err")
+      }
+
     } catch {
       case e: Exception =>
-        println(s"\n❌ Error: ${e.getMessage}")
+        println(s"\nError: ${e.getMessage}")
         e.printStackTrace()
     } finally {
       connection.close()
-      println("\n👋 Connection closed")
+      println("\nConnection closed")
     }
   }
 }

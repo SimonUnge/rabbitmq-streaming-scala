@@ -30,19 +30,29 @@ object SaslAuthenticateCodec {
     buffer
   }
 
-  def decode(buffer: ByteBuffer): Either[String, SaslAuthenticateResponse] = {
+  def decode(
+      buffer: ByteBuffer,
+      expectedKey: Short,
+      expectedVersion: Short
+  ): Either[String, SaslAuthenticateResponse] = {
     for {
-      key <- Right(buffer.getShort()).filterOrElse(
-        _ == Protocol.Commands.SaslAuthenticateResponse,
+      key <- Either.cond(
+        expectedKey == Protocol.Commands.SaslAuthenticateResponse,
+        (),
         s"Invalid key field"
       )
-      version <- Right(buffer.getShort()).filterOrElse(
-        _ == Protocol.ProtocolVersion,
+      version <- Either.cond(
+        expectedVersion == Protocol.ProtocolVersion,
+        (),
         s"Incompatible protocol version"
       )
       correlationId = buffer.getInt()
       responseCode = buffer.getShort()
       saslOpaqueData = Protocol.readOptionalBytes(buffer)
-    } yield SaslAuthenticateResponse(correlationId, responseCode, saslOpaqueData)
+    } yield SaslAuthenticateResponse(
+      correlationId,
+      responseCode,
+      saslOpaqueData
+    )
   }
 }

@@ -63,7 +63,8 @@ case class SaslAuthenticateResponse(
 
 sealed trait SaslAuthenticateResult
 object SaslAuthenticateResult {
-  case class Success(saslOpaqueData: Option[Array[Byte]]) extends SaslAuthenticateResult
+  case class Success(saslOpaqueData: Option[Array[Byte]])
+      extends SaslAuthenticateResult
   case class UnknownError(code: Short) extends SaslAuthenticateResult
 }
 
@@ -87,4 +88,14 @@ object OpenResult {
   case class Success(connectionProperties: Map[String, String])
       extends OpenResult
   case class UnknownError(code: Short) extends OpenResult
-}   
+}
+
+case class CreateRequest(
+    stream: String,
+    arguments: Map[String, String] = Map.empty
+)
+
+case class CreateResponse(
+    correlationId: Int,
+    responseCode: Short
+)

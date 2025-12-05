@@ -9,7 +9,7 @@ object OpenCodec {
     val fixedSize = 2 + // Key
       2 + // Version
       4 // CorrelationId
-    
+
     val virtualHostBytes = request.virtualHost.getBytes("UTF-8")
     val virtualHostSize = 2 + virtualHostBytes.length
 
@@ -25,26 +25,32 @@ object OpenCodec {
     buffer
   }
 
-  def decode(buffer: ByteBuffer): Either[String, OpenResponse] = {
+  def decode(
+      buffer: ByteBuffer,
+      expectedKey: Short,
+      expectedVersion: Short
+  ): Either[String, OpenResponse] = {
     for {
-        key <- Right(buffer.getShort()).filterOrElse(
-        _ == Protocol.Commands.OpenResponse,
+      key <- Either.cond(
+        expectedKey == Protocol.Commands.OpenResponse,
+        (),
         s"Invalid key field"
-        )
-        version <- Right(buffer.getShort()).filterOrElse(
-        _ == Protocol.ProtocolVersion,
+      )
+      version <- Either.cond(
+        expectedVersion == Protocol.ProtocolVersion,
+        (),
         s"Incompatible protocol version"
-        )
-        correlationId = buffer.getInt()
-        responseCode  = buffer.getShort()
-        numConnectionProperties = buffer.getInt()
-        connectionProperties <- Right {
-          (0 until numConnectionProperties).map { _ =>
-            val propKey = Protocol.readString(buffer)
-            val propValue = Protocol.readString(buffer)
-            (propKey, propValue)
-          }.toMap
-        }
+      )
+      correlationId = buffer.getInt()
+      responseCode = buffer.getShort()
+      numConnectionProperties = buffer.getInt()
+      connectionProperties <- Right {
+        (0 until numConnectionProperties).map { _ =>
+          val propKey = Protocol.readString(buffer)
+          val propValue = Protocol.readString(buffer)
+          (propKey, propValue)
+        }.toMap
+      }
     } yield OpenResponse(correlationId, responseCode, connectionProperties)
   }
 }

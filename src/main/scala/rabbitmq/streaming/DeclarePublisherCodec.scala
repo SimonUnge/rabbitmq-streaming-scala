@@ -4,12 +4,15 @@ import java.nio.ByteBuffer
 
 object DeclarePublisherCodec {
 
-  def encode(request: DeclarePublisherRequest, correlationId: Int): ByteBuffer = {
+  def encode(
+      request: DeclarePublisherRequest,
+      correlationId: Int
+  ): ByteBuffer = {
     // Estimate size: 1 (publisherId) + 2 + stream.length + 2 + publisherReference.length (if present)
-    val fixedSize = 2 +  // Key   
-                    2 +  // Version   
-                    4 +  // CorrelationId
-                    1    // PublisherId
+    val fixedSize = 2 + // Key
+      2 + // Version
+      4 + // CorrelationId
+      1 // PublisherId
 
     val streamBytes = request.stream.getBytes("UTF-8")
     val streamSize = 2 + streamBytes.length
@@ -34,19 +37,25 @@ object DeclarePublisherCodec {
 
     buffer
   }
-  
-  def decode(buffer: ByteBuffer): Either[String, DeclarePublisherResponse] = {
+
+  def decode(
+      buffer: ByteBuffer,
+      expectedKey: Short,
+      expectedVersion: Short
+  ): Either[String, DeclarePublisherResponse] = {
     for {
-        key <- Right(buffer.getShort()).filterOrElse(
-        _ == Protocol.Commands.DeclarePublisherResponse,
+      key <- Either.cond(
+        expectedKey == Protocol.Commands.DeclarePublisherResponse,
+        (),
         s"Invalid key field"
-        )
-        version <- Right(buffer.getShort()).filterOrElse(
-        _ == Protocol.ProtocolVersion,
+      )
+      version <- Either.cond(
+        expectedVersion == Protocol.ProtocolVersion,
+        (),
         s"Incompatible protocol version"
-        )
-        correlationId = buffer.getInt()
-        responseCode  = buffer.getShort()
+      )
+      correlationId = buffer.getInt()
+      responseCode = buffer.getShort()
     } yield DeclarePublisherResponse(correlationId.toInt, responseCode)
   }
 }

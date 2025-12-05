@@ -3,14 +3,20 @@ import java.nio.ByteBuffer
 
 object TuneCodec {
   // Client receives from server
-  def decode(buffer: ByteBuffer): Either[String, TuneRequest] = {
+  def decode(
+      buffer: ByteBuffer,
+      expectedKey: Short,
+      expectedVersion: Short
+  ): Either[String, TuneRequest] = {
     for {
-      key <- Right(buffer.getShort()).filterOrElse(
-        _ == Protocol.Commands.TuneRequest,
+      key <- Either.cond(
+        expectedKey == Protocol.Commands.TuneRequest,
+        (),
         s"Invalid key field"
       )
-      version <- Right(buffer.getShort()).filterOrElse(
-        _ == Protocol.ProtocolVersion,
+      version <- Either.cond(
+        expectedVersion == Protocol.ProtocolVersion,
+        (),
         s"Incompatible protocol version"
       )
       frameMax = buffer.getInt()
