@@ -99,3 +99,14 @@ case class CreateResponse(
     correlationId: Int,
     responseCode: Short
 )
+
+case class PublishRequest(
+    publisherId: Byte,
+    publishedMessages: List[PublishedMessage]
+)
+
+case class PublishedMessage(
+    publishingId: Long,
+    message: Array[Byte],
+    filterValue: Option[String] = None
+)

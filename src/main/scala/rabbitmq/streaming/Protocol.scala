@@ -8,6 +8,7 @@ object Protocol {
 
   object Commands {
     val DeclarePublisher: Short = 0x0001
+    val Publish: Short = 0x0002
     val DeclarePublisherResponse: Short = 0x8001.toShort
     val PeerProperties: Short = 0x0011
     val PeerPropertiesResponse: Short = 0x8011.toShort
@@ -20,6 +21,8 @@ object Protocol {
     val OpenResponse: Short = 0x8015.toShort
     val Create: Short = 0x000d.toShort
     val CreateResponse: Short = 0x800d.toShort
+    val Subscribe: Short = 0x0006
+    val SubscribeResponse: Short = 0x8006.toShort
   }
 
   object Sizes {
@@ -59,7 +62,7 @@ object Protocol {
       case Some(str) =>
         writeString(buffer, str)
       case None =>
-        buffer.putShort(-1.toShort)
+        buffer.putShort(0.toShort)
     }
   }
 

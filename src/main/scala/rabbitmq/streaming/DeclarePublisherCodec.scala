@@ -9,9 +9,9 @@ object DeclarePublisherCodec {
       correlationId: Int
   ): ByteBuffer = {
     // Estimate size: 1 (publisherId) + 2 + stream.length + 2 + publisherReference.length (if present)
-    val fixedSize = Protocol.Sizes.Key + 
-      Protocol.Sizes.Version + 
-      Protocol.Sizes.CorrelationId + 
+    val fixedSize = Protocol.Sizes.Key +
+      Protocol.Sizes.Version +
+      Protocol.Sizes.CorrelationId +
       Protocol.Sizes.PublisherId
 
     val streamBytes = request.stream.getBytes("UTF-8")
@@ -29,12 +29,8 @@ object DeclarePublisherCodec {
     buffer.putShort(Protocol.ProtocolVersion)
     buffer.putInt(correlationId)
     buffer.put(request.publisherId)
-
     Protocol.writeOptionalString(buffer, request.publisherReference)
     Protocol.writeString(buffer, request.stream)
-
-    println(s"DEBUG: Buffer position before return: ${buffer.position()}")
-
     buffer
   }
 

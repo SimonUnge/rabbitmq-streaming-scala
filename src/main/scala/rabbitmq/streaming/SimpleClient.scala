@@ -117,6 +117,37 @@ object SimpleClient {
         case Left(err) => throw new Exception(s"Create failed: $err")
       }
 
+      // 7. Declare Publisher
+      println("\nDeclaring publisher...")
+      correlationId += 1
+      val publisherId: Byte = 1
+      val declareReq =
+        DeclarePublisherRequest(publisherId, streamName)
+
+      connection.sendFrame(
+        DeclarePublisherCodec.encode(declareReq, correlationId)
+      )
+      receiveAndDecode(DeclarePublisherCodec.decode) match {
+        case Right(resp) if resp.responseCode == Protocol.ResponseCodes.OK =>
+          println("Publisher declared successfully!")
+        case Right(resp) =>
+          throw new Exception(
+            s"Declare publisher failed with code: ${resp.responseCode}"
+          )
+        case Left(err) => throw new Exception(s"Declare publisher failed: $err")
+      }
+
+// 8. Publish Messages
+      println("\nPublishing messages...")
+      val messages = List(
+        PublishedMessage(1L, "Hello from Scala!".getBytes("UTF-8")),
+        PublishedMessage(2L, "Second message".getBytes("UTF-8")),
+        PublishedMessage(3L, "Third message".getBytes("UTF-8"))
+      )
+      val publishReq = PublishRequest(publisherId, messages)
+      connection.sendFrame(PublishCodec.encode(publishReq))
+      println(s"Published ${messages.size} messages (fire-and-forget)")
+
     } catch {
       case e: Exception =>
         println(s"\nError: ${e.getMessage}")
