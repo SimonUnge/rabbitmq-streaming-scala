@@ -11,6 +11,7 @@ object Protocol {
     val DeclarePublisherResponse: Short = 0x8001.toShort
     val Publish: Short = 0x0002
     val Subscribe: Short = 0x0007
+    val Deliver: Short = 0x0008
     val SubscribeResponse: Short = 0x8007.toShort
     val Create: Short = 0x000d.toShort
     val CreateResponse: Short = 0x800d.toShort

@@ -23,8 +23,14 @@ object PublishCodec {
     val totalSize = fixedSize + publishedMessagesSize
     val buffer = Protocol.allocate(totalSize)
 
+    val version =
+      if (request.publishedMessages.exists(_.filterValue.isDefined)) {
+        2.toShort // Version 2 if any message has a filter
+      } else {
+        1.toShort // Version 1 if no filters
+      }
     buffer.putShort(Protocol.Commands.Publish)
-    buffer.putShort(Protocol.ProtocolVersion)
+    buffer.putShort(version)
     buffer.put(request.publisherId)
     buffer.putInt(request.publishedMessages.size)
 

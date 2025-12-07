@@ -133,3 +133,32 @@ object OffsetSpecification {
   case class Timestamp(value: Long)
       extends OffsetSpecification // Type = 5, value = the Long
 }
+
+case class Deliver(
+    subscriptionId: Byte,
+    committedOffset: Option[Long],
+    osirisChunk: OsirisChunk
+)
+
+case class OsirisChunk(
+    magicVersion: Byte,
+    chunkType: ChunkType,
+    numEntries: Short,
+    numRecords: Int,
+    timeStamp: Long,
+    epoch: Long,
+    chunkFirstOffset: Long,
+    chunkCrc: Int,
+    dataLength: Int,
+    trailerLength: Int,
+    bloomSize: Byte,
+    reserved: Int,
+    messages: Array[Byte]
+)
+
+sealed trait ChunkType
+object ChunkType {
+  case object User extends ChunkType
+  case object TrackingDelta extends ChunkType
+  case object TrackingSnapshot extends ChunkType
+}
