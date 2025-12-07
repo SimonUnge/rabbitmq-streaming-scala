@@ -10,11 +10,30 @@ object Protocol {
     val DeclarePublisher: Short = 0x0001
     val DeclarePublisherResponse: Short = 0x8001.toShort
     val Publish: Short = 0x0002
+    val DeletePublisher: Short = 0x0003
+    val DeletePublisherResponse: Short = 0x8003.toShort
+    val QueryPublisherSequence: Short = 0x0004
+    val QueryPublisherSequenceResponse: Short = 0x8004.toShort
+    val PublishConfirm: Short = 0x0005
+    val Credit: Short = 0x0006
     val Subscribe: Short = 0x0007
-    val Deliver: Short = 0x0008
     val SubscribeResponse: Short = 0x8007.toShort
+    val Deliver: Short = 0x0008
+    val PublishError: Short = 0x0009
+    val Delete: Short = 0x000a.toShort
+    val DeleteResponse: Short = 0x800a.toShort
+    val Metadata: Short = 0x000b.toShort
+    val MetadataResponse: Short = 0x800b.toShort
+    val Unsubscribe: Short = 0x000c.toShort
+    val UnsubscribeResponse: Short = 0x800c.toShort
     val Create: Short = 0x000d.toShort
     val CreateResponse: Short = 0x800d.toShort
+    val Route: Short = 0x000e.toShort
+    val RouteResponse: Short = 0x800e.toShort
+    val Partitions: Short = 0x000f.toShort
+    val PartitionsResponse: Short = 0x800f.toShort
+    val QueryOffset: Short = 0x0010
+    val QueryOffsetResponse: Short = 0x8010.toShort
     val PeerProperties: Short = 0x0011
     val PeerPropertiesResponse: Short = 0x8011.toShort
     val SaslHandshake: Short = 0x0012
@@ -24,6 +43,8 @@ object Protocol {
     val TuneRequest: Short = 0x0014
     val Open: Short = 0x0015
     val OpenResponse: Short = 0x8015.toShort
+    val MetadataUpdate: Short = 0x0016
+    val Heartbeat: Short = 0x0017
   }
 
   object Sizes {

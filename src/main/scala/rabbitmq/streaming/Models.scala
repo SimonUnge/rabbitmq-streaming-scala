@@ -162,3 +162,137 @@ object ChunkType {
   case object TrackingDelta extends ChunkType
   case object TrackingSnapshot extends ChunkType
 }
+
+// Credit Command
+case class CreditRequest(
+    subscriptionId: Byte,
+    credit: Short
+)
+
+// Delete Command
+case class DeleteRequest(
+    stream: String
+)
+
+case class DeleteResponse(
+    correlationId: Int,
+    responseCode: Short
+)
+
+// Delete Publisher Command
+case class DeletePublisherRequest(
+    publisherId: Byte
+)
+
+case class DeletePublisherResponse(
+    correlationId: Int,
+    responseCode: Short
+)
+
+// Query Publisher Sequence Command
+case class QueryPublisherSequenceRequest(
+    publisherReference: String,
+    stream: String
+)
+
+case class QueryPublisherSequenceResponse(
+    correlationId: Int,
+    responseCode: Short,
+    sequence: Long
+)
+
+// Publish Confirm Command (server-initiated)
+case class PublishConfirm(
+    publisherId: Byte,
+    publishingIds: List[Long]
+)
+
+// Publish Error Command (server-initiated)
+case class PublishError(
+    publisherId: Byte,
+    publishingErrors: List[PublishingError]
+)
+
+case class PublishingError(
+    publishingId: Long,
+    errorCode: Short
+)
+
+// Unsubscribe Command
+case class UnsubscribeRequest(
+    subscriptionId: Byte
+)
+
+case class UnsubscribeResponse(
+    correlationId: Int,
+    responseCode: Short
+)
+
+// Query Offset Command
+case class QueryOffsetRequest(
+    reference: String,
+    stream: String
+)
+
+case class QueryOffsetResponse(
+    correlationId: Int,
+    responseCode: Short,
+    offset: Long
+)
+
+// Metadata Command
+case class MetadataRequest(
+    streams: List[String]
+)
+
+case class MetadataResponse(
+    correlationId: Int,
+    responseCode: Short,
+    brokers: List[Broker],
+    streamMetadata: List[StreamMetadata]
+)
+
+case class Broker(
+    reference: Short,
+    host: String,
+    port: Int
+)
+
+case class StreamMetadata(
+    streamName: String,
+    responseCode: Short,
+    leaderReference: Short,
+    replicaReferences: List[Short]
+)
+
+// Route Command (Super Streams)
+case class RouteRequest(
+    routingKey: String,
+    superStream: String
+)
+
+case class RouteResponse(
+    correlationId: Int,
+    responseCode: Short,
+    streams: List[String]
+)
+
+// Partitions Command (Super Streams)
+case class PartitionsRequest(
+    superStream: String
+)
+
+case class PartitionsResponse(
+    correlationId: Int,
+    responseCode: Short,
+    streams: List[String]
+)
+
+// Metadata Update (server-initiated)
+case class MetadataUpdate(
+    metadataInfo: Short,
+    stream: String
+)
+
+// Heartbeat Command
+case object HeartbeatRequest
