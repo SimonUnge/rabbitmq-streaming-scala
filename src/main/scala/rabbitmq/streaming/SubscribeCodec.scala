@@ -60,7 +60,7 @@ object SubscribeCodec {
   def decode(
       buffer: ByteBuffer,
       expectedKey: Short,
-      expectedVersion: Short
+      version: Short
   ): Either[String, SubscribeResponse] = {
     for {
       key <- Either.cond(
@@ -68,11 +68,7 @@ object SubscribeCodec {
         (),
         s"Invalid key field"
       )
-      version <- Either.cond(
-        expectedVersion == Protocol.ProtocolVersion,
-        (),
-        s"Incompatible protocol version"
-      )
+      // Version parameter received but not used for this simple response
       correlationId = buffer.getInt()
       responseCode = buffer.getShort()
     } yield SubscribeResponse(correlationId.toInt, responseCode)

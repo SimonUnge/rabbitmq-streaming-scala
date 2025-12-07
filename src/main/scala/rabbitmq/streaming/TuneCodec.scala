@@ -6,7 +6,7 @@ object TuneCodec {
   def decode(
       buffer: ByteBuffer,
       expectedKey: Short,
-      expectedVersion: Short
+      version: Short
   ): Either[String, TuneRequest] = {
     for {
       key <- Either.cond(
@@ -14,11 +14,7 @@ object TuneCodec {
         (),
         s"Invalid key field"
       )
-      version <- Either.cond(
-        expectedVersion == Protocol.ProtocolVersion,
-        (),
-        s"Incompatible protocol version"
-      )
+      // Version parameter received but not used for this simple response
       frameMax = buffer.getInt()
       heartbeat = buffer.getInt()
     } yield TuneRequest(frameMax, heartbeat)

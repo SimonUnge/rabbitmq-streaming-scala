@@ -28,7 +28,7 @@ object OpenCodec {
   def decode(
       buffer: ByteBuffer,
       expectedKey: Short,
-      expectedVersion: Short
+      version: Short
   ): Either[String, OpenResponse] = {
     for {
       key <- Either.cond(
@@ -36,11 +36,7 @@ object OpenCodec {
         (),
         s"Invalid key field"
       )
-      version <- Either.cond(
-        expectedVersion == Protocol.ProtocolVersion,
-        (),
-        s"Incompatible protocol version"
-      )
+      // Version parameter received but not used for this simple response
       correlationId = buffer.getInt()
       responseCode = buffer.getShort()
       numConnectionProperties = buffer.getInt()
