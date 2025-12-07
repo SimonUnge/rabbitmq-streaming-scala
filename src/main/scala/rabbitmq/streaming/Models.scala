@@ -115,7 +115,7 @@ case class SubscribeRequest(
     subscriptionId: Byte,
     stream: String,
     offsetSpecification: OffsetSpecification,
-    credit: Short,
+    credit: Int,
     properties: Map[String, String] = Map.empty
 )
 

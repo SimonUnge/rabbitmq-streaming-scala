@@ -9,19 +9,26 @@ object SubscribeCodec {
       Protocol.Sizes.CorrelationId +
       Protocol.Sizes.SubscriptionId +
       Protocol.Sizes.OffsetType +
-      Protocol.Sizes.Offset +
-      Protocol.Sizes.Credit +
-      Protocol.Sizes.ArrayLength
+      Protocol.Sizes.Credit
+
+    val offsetSize = request.offsetSpecification match {
+      case OffsetSpecification.Offset(_) | OffsetSpecification.Timestamp(_) => 8
+      case _                                                                => 0
+    }
 
     val streamBytes = request.stream.getBytes("UTF-8")
     val streamSize = Protocol.Sizes.StringLength + streamBytes.length
 
-    val propertiesSize = request.properties.map { case (key, value) =>
-      Protocol.Sizes.StringLength + key.getBytes("UTF-8").length +
-        Protocol.Sizes.StringLength + value.getBytes("UTF-8").length
-    }.sum
+    val propertiesSize = if (request.properties.nonEmpty) {
+      Protocol.Sizes.ArrayLength + request.properties.map { case (key, value) =>
+        Protocol.Sizes.StringLength + key.getBytes("UTF-8").length +
+          Protocol.Sizes.StringLength + value.getBytes("UTF-8").length
+      }.sum
+    } else {
+      0
+    }
 
-    val totalSize = fixedSize + streamSize + propertiesSize
+    val totalSize = fixedSize + offsetSize + streamSize + propertiesSize
 
     val buffer = Protocol.allocate(totalSize)
 
@@ -29,16 +36,14 @@ object SubscribeCodec {
     buffer.putShort(Protocol.ProtocolVersion)
     buffer.putInt(correlationId)
     buffer.put(request.subscriptionId)
+    Protocol.writeString(buffer, request.stream)
     request.offsetSpecification match {
       case OffsetSpecification.First =>
         buffer.putShort(1)
-        buffer.putLong(0L)
       case OffsetSpecification.Last =>
         buffer.putShort(2)
-        buffer.putLong(0L)
       case OffsetSpecification.Next =>
         buffer.putShort(3)
-        buffer.putLong(0L)
       case OffsetSpecification.Offset(offset) =>
         buffer.putShort(4)
         buffer.putLong(offset)
@@ -47,12 +52,23 @@ object SubscribeCodec {
         buffer.putLong(timestamp)
     }
 
-    buffer.putShort(request.credit)
-    buffer.putInt(request.properties.size)
-    request.properties.foreach { case (key, value) =>
-      Protocol.writeString(buffer, key)
-      Protocol.writeString(buffer, value)
+    buffer.putShort(request.credit.toShort)
+
+    println(
+      s"DEBUG Subscribe: properties.size=${request.properties.size}, isEmpty=${request.properties.isEmpty}, nonEmpty=${request.properties.nonEmpty}"
+    )
+
+    if (request.properties.nonEmpty) {
+      buffer.putInt(request.properties.size)
+      request.properties.foreach { case (key, value) =>
+        Protocol.writeString(buffer, key)
+        Protocol.writeString(buffer, value)
+      }
     }
+
+    println(
+      s"DEBUG Subscribe: Buffer position=${buffer.position()}, bytes=${buffer.array().take(buffer.position()).map(b => f"$b%02x").mkString(",")}"
+    )
 
     buffer
   }

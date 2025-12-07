@@ -3,6 +3,7 @@ import java.nio.ByteBuffer
 
 object SimpleClient {
   def main(args: Array[String]): Unit = {
+    val mode = if (args.nonEmpty) args(0) else "publish"
     val config = ConnectionConfig(
       host = sys.env.getOrElse("RABBITMQ_HOST", "localhost"),
       port = sys.env.get("RABBITMQ_PORT").map(_.toInt).getOrElse(5552),
@@ -117,36 +118,75 @@ object SimpleClient {
         case Left(err) => throw new Exception(s"Create failed: $err")
       }
 
-      // 7. Declare Publisher
-      println("\nDeclaring publisher...")
-      correlationId += 1
-      val publisherId: Byte = 1
-      val declareReq =
-        DeclarePublisherRequest(publisherId, streamName)
-
-      connection.sendFrame(
-        DeclarePublisherCodec.encode(declareReq, correlationId)
-      )
-      receiveAndDecode(DeclarePublisherCodec.decode) match {
-        case Right(resp) if resp.responseCode == Protocol.ResponseCodes.OK =>
-          println("Publisher declared successfully!")
-        case Right(resp) =>
-          throw new Exception(
-            s"Declare publisher failed with code: ${resp.responseCode}"
+      mode match {
+        case "subscribe" =>
+          // Subscribe to stream from first offset
+          println("\nSubscribing to stream...")
+          correlationId += 1
+          val subscriptionId: Byte = 1
+          val subscribeReq = SubscribeRequest(
+            subscriptionId,
+            streamName,
+            OffsetSpecification.First,
+            1, // credit
+            Map.empty
           )
-        case Left(err) => throw new Exception(s"Declare publisher failed: $err")
-      }
+          connection.sendFrame(SubscribeCodec.encode(subscribeReq, correlationId))
+          receiveAndDecode(SubscribeCodec.decode) match {
+            case Right(resp) if resp.responseCode == Protocol.ResponseCodes.OK =>
+              println("Subscribed successfully! Waiting for messages...")
+              
+              // Listen for Deliver messages
+              while (true) {
+                val (key, version, buffer) = connection.receiveFrame()
+                if (key == Protocol.Commands.Deliver) {
+                  DeliverCodec.decode(buffer, key, version) match {
+                    case Right(deliver) =>
+                      println(s"Received message: subscriptionId=${deliver.subscriptionId}, chunk with ${deliver.osirisChunk.numEntries} entries")
+                    case Left(err) =>
+                      println(s"Failed to decode deliver: $err")
+                  }
+                } else {
+                  println(s"Unexpected frame: key=$key")
+                }
+              }
+            case Right(resp) =>
+              throw new Exception(s"Subscribe failed with code: ${resp.responseCode}")
+            case Left(err) => throw new Exception(s"Subscribe failed: $err")
+          }
+          
+        case _ => // "publish" or default
+          // 7. Declare Publisher
+          println("\nDeclaring publisher...")
+          correlationId += 1
+          val publisherId: Byte = 1
+          val declareReq =
+            DeclarePublisherRequest(publisherId, streamName)
 
-// 8. Publish Messages
-      println("\nPublishing messages...")
-      val messages = List(
-        PublishedMessage(1L, "Hello from Scala!".getBytes("UTF-8")),
-        PublishedMessage(2L, "Second message".getBytes("UTF-8")),
-        PublishedMessage(3L, "Third message".getBytes("UTF-8"))
-      )
-      val publishReq = PublishRequest(publisherId, messages)
-      connection.sendFrame(PublishCodec.encode(publishReq))
-      println(s"Published ${messages.size} messages (fire-and-forget)")
+          connection.sendFrame(
+            DeclarePublisherCodec.encode(declareReq, correlationId)
+          )
+          receiveAndDecode(DeclarePublisherCodec.decode) match {
+            case Right(resp) if resp.responseCode == Protocol.ResponseCodes.OK =>
+              println("Publisher declared successfully!")
+            case Right(resp) =>
+              throw new Exception(
+                s"Declare publisher failed with code: ${resp.responseCode}"
+              )
+            case Left(err) => throw new Exception(s"Declare publisher failed: $err")
+          }
+
+          // 8. Publish Messages
+          println("\nPublishing messages...")
+          val messages = List(
+            PublishedMessage(1L, "Hello from Scala!".getBytes("UTF-8")),
+            PublishedMessage(2L, "Second message".getBytes("UTF-8")),
+            PublishedMessage(3L, "Third message".getBytes("UTF-8"))
+          )
+          val publishReq = PublishRequest(publisherId, messages)
+          connection.sendFrame(PublishCodec.encode(publishReq))
+          println(s"Published ${messages.size} messages (fire-and-forget)")
+      }
 
     } catch {
       case e: Exception =>
