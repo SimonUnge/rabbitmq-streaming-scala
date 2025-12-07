@@ -8,8 +8,12 @@ object Protocol {
 
   object Commands {
     val DeclarePublisher: Short = 0x0001
-    val Publish: Short = 0x0002
     val DeclarePublisherResponse: Short = 0x8001.toShort
+    val Publish: Short = 0x0002
+    val Subscribe: Short = 0x0007
+    val SubscribeResponse: Short = 0x8007.toShort
+    val Create: Short = 0x000d.toShort
+    val CreateResponse: Short = 0x800d.toShort
     val PeerProperties: Short = 0x0011
     val PeerPropertiesResponse: Short = 0x8011.toShort
     val SaslHandshake: Short = 0x0012
@@ -19,10 +23,6 @@ object Protocol {
     val TuneRequest: Short = 0x0014
     val Open: Short = 0x0015
     val OpenResponse: Short = 0x8015.toShort
-    val Create: Short = 0x000d.toShort
-    val CreateResponse: Short = 0x800d.toShort
-    val Subscribe: Short = 0x0006
-    val SubscribeResponse: Short = 0x8006.toShort
   }
 
   object Sizes {
@@ -34,8 +34,10 @@ object Protocol {
     val PublisherId: Int = 1
     val ResponseCode: Int = 2
     val SubscriptionId: Int = 1
+    val OffsetType: Int = 2
     val Offset: Int = 8
     val Timestamp: Int = 8
+    val Credit: Int = 2
   }
 
   object ResponseCodes {

@@ -110,3 +110,26 @@ case class PublishedMessage(
     message: Array[Byte],
     filterValue: Option[String] = None
 )
+
+case class SubscribeRequest(
+    subscriptionId: Byte,
+    stream: String,
+    offsetSpecification: OffsetSpecification,
+    credit: Short,
+    properties: Map[String, String] = Map.empty
+)
+
+case class SubscribeResponse(
+    correlationId: Int,
+    responseCode: Short
+)
+sealed trait OffsetSpecification
+object OffsetSpecification {
+  case object First extends OffsetSpecification // Type = 1, no value needed
+  case object Last extends OffsetSpecification // Type = 2, no value needed
+  case object Next extends OffsetSpecification // Type = 3, no value needed
+  case class Offset(value: Long)
+      extends OffsetSpecification // Type = 4, value = the Long
+  case class Timestamp(value: Long)
+      extends OffsetSpecification // Type = 5, value = the Long
+}
