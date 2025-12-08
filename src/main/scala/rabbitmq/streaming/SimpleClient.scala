@@ -131,18 +131,23 @@ object SimpleClient {
             1, // credit
             Map.empty
           )
-          connection.sendFrame(SubscribeCodec.encode(subscribeReq, correlationId))
+          connection.sendFrame(
+            SubscribeCodec.encode(subscribeReq, correlationId)
+          )
           receiveAndDecode(SubscribeCodec.decode) match {
-            case Right(resp) if resp.responseCode == Protocol.ResponseCodes.OK =>
+            case Right(resp)
+                if resp.responseCode == Protocol.ResponseCodes.OK =>
               println("Subscribed successfully! Waiting for messages...")
-              
+
               // Listen for Deliver messages
               while (true) {
                 val (key, version, buffer) = connection.receiveFrame()
                 if (key == Protocol.Commands.Deliver) {
                   DeliverCodec.decode(buffer, key, version) match {
                     case Right(deliver) =>
-                      println(s"Received message: subscriptionId=${deliver.subscriptionId}, chunk with ${deliver.osirisChunk.numEntries} entries")
+                      println(
+                        s"Received message: subscriptionId=${deliver.subscriptionId}, chunk with ${deliver.osirisChunk.numEntries} entries"
+                      )
                     case Left(err) =>
                       println(s"Failed to decode deliver: $err")
                   }
@@ -151,10 +156,12 @@ object SimpleClient {
                 }
               }
             case Right(resp) =>
-              throw new Exception(s"Subscribe failed with code: ${resp.responseCode}")
+              throw new Exception(
+                s"Subscribe failed with code: ${resp.responseCode}"
+              )
             case Left(err) => throw new Exception(s"Subscribe failed: $err")
           }
-          
+
         case _ => // "publish" or default
           // 7. Declare Publisher
           println("\nDeclaring publisher...")
@@ -167,13 +174,15 @@ object SimpleClient {
             DeclarePublisherCodec.encode(declareReq, correlationId)
           )
           receiveAndDecode(DeclarePublisherCodec.decode) match {
-            case Right(resp) if resp.responseCode == Protocol.ResponseCodes.OK =>
+            case Right(resp)
+                if resp.responseCode == Protocol.ResponseCodes.OK =>
               println("Publisher declared successfully!")
             case Right(resp) =>
               throw new Exception(
                 s"Declare publisher failed with code: ${resp.responseCode}"
               )
-            case Left(err) => throw new Exception(s"Declare publisher failed: $err")
+            case Left(err) =>
+              throw new Exception(s"Declare publisher failed: $err")
           }
 
           // 8. Publish Messages

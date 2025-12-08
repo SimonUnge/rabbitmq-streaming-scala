@@ -53,11 +53,7 @@ object SubscribeCodec {
     }
 
     buffer.putShort(request.credit.toShort)
-
-    println(
-      s"DEBUG Subscribe: properties.size=${request.properties.size}, isEmpty=${request.properties.isEmpty}, nonEmpty=${request.properties.nonEmpty}"
-    )
-
+    
     if (request.properties.nonEmpty) {
       buffer.putInt(request.properties.size)
       request.properties.foreach { case (key, value) =>
@@ -65,10 +61,6 @@ object SubscribeCodec {
         Protocol.writeString(buffer, value)
       }
     }
-
-    println(
-      s"DEBUG Subscribe: Buffer position=${buffer.position()}, bytes=${buffer.array().take(buffer.position()).map(b => f"$b%02x").mkString(",")}"
-    )
 
     buffer
   }

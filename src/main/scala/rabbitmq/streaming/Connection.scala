@@ -16,7 +16,7 @@ case class ConnectionConfig(
     password: String = "guest"
 )
 
-class Connection(config: ConnectionConfig) {
+class Connection(config: ConnectionConfig) extends AutoCloseable {
   private val socket: Socket = {
     val s = new Socket()
     s.setTcpNoDelay(true)
@@ -50,9 +50,9 @@ class Connection(config: ConnectionConfig) {
     (key, version, buffer)
   }
 
-  def close(): Unit = {
-    Try(in.close())
+  override def close(): Unit = {
     Try(out.close())
+    Try(in.close())
     Try(socket.close())
   }
 }

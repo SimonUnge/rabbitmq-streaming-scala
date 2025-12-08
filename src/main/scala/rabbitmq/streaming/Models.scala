@@ -107,7 +107,7 @@ case class PublishRequest(
 
 case class PublishedMessage(
     publishingId: Long,
-    message: Array[Byte],
+    message: Array[Byte], // Note: Arrays use reference equality, not content equality
     filterValue: Option[String] = None
 )
 
@@ -240,6 +240,18 @@ case class QueryOffsetResponse(
     offset: Long
 )
 
+// Store Offset Command
+case class StoreOffsetRequest(
+    reference: String,
+    stream: String,
+    offset: Long
+)
+
+case class StoreOffsetResponse(
+    correlationId: Int,
+    responseCode: Short
+)
+
 // Metadata Command
 case class MetadataRequest(
     streams: List[String]
@@ -296,3 +308,65 @@ case class MetadataUpdate(
 
 // Heartbeat Command
 case object HeartbeatRequest
+
+// Close Command
+case class CloseRequest(
+    reason: String
+)
+
+case class CloseResponse(
+    correlationId: Int,
+    responseCode: Short
+)
+
+// Consumer Update (server-initiated)
+case class ConsumerUpdate(
+    subscriptionId: Byte,
+    active: Boolean
+)
+
+// Exchange Command
+case class ExchangeRequest(
+    exchange: String,
+    routingKey: String,
+    message: Array[Byte]
+)
+
+case class ExchangeResponse(
+    correlationId: Int,
+    responseCode: Short
+)
+
+// Stream Stats Command
+case class StreamStatsRequest(
+    stream: String
+)
+
+case class StreamStatsResponse(
+    correlationId: Int,
+    responseCode: Short,
+    stats: Map[String, Long]
+)
+
+// Create Super Stream Command
+case class CreateSuperStreamRequest(
+    name: String,
+    partitions: List[String],
+    bindingKeys: List[String],
+    arguments: Map[String, String] = Map.empty
+)
+
+case class CreateSuperStreamResponse(
+    correlationId: Int,
+    responseCode: Short
+)
+
+// Delete Super Stream Command
+case class DeleteSuperStreamRequest(
+    name: String
+)
+
+case class DeleteSuperStreamResponse(
+    correlationId: Int,
+    responseCode: Short
+)
