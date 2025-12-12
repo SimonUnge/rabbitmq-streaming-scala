@@ -128,7 +128,7 @@ object SimpleClient {
             subscriptionId,
             streamName,
             OffsetSpecification.First,
-            1, // credit
+            100, // credit
             Map.empty
           )
           connection.sendFrame(
@@ -190,7 +190,11 @@ object SimpleClient {
           val messages = List(
             PublishedMessage(1L, "Hello from Scala!".getBytes("UTF-8")),
             PublishedMessage(2L, "Second message".getBytes("UTF-8")),
-            PublishedMessage(3L, "Third message".getBytes("UTF-8"))
+            PublishedMessage(3L, "Third message".getBytes("UTF-8")),
+            PublishedMessage(4L, "Third message".getBytes("UTF-8")),
+            PublishedMessage(6L, "Third message".getBytes("UTF-8")),
+            PublishedMessage(7L, "Third message".getBytes("UTF-8")),
+            PublishedMessage(8L, "Third message".getBytes("UTF-8"))
           )
           val publishReq = PublishRequest(publisherId, messages)
           connection.sendFrame(PublishCodec.encode(publishReq))
