@@ -107,7 +107,9 @@ case class PublishRequest(
 
 case class PublishedMessage(
     publishingId: Long,
-    message: Array[Byte], // Note: Arrays use reference equality, not content equality
+    message: Array[
+      Byte
+    ], // Note: Arrays use reference equality, not content equality
     filterValue: Option[String] = None
 )
 
@@ -115,7 +117,7 @@ case class SubscribeRequest(
     subscriptionId: Byte,
     stream: String,
     offsetSpecification: OffsetSpecification,
-    credit: Int,
+    credit: Short,
     properties: Map[String, String] = Map.empty
 )
 

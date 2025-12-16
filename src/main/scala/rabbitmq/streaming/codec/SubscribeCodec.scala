@@ -52,8 +52,8 @@ object SubscribeCodec {
         buffer.putLong(timestamp)
     }
 
-    buffer.putShort(request.credit.toShort)
-    
+    buffer.putShort(request.credit)
+
     if (request.properties.nonEmpty) {
       buffer.putInt(request.properties.size)
       request.properties.foreach { case (key, value) =>

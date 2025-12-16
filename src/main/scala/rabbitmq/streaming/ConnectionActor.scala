@@ -8,16 +8,15 @@ import scala.concurrent.ExecutionContext
 import scala.util.{Success, Failure}
 
 object ConnectionActor {
-
   // TODO: Define message types
   sealed trait Command
   case object Close extends Command
+
   private case class FrameReceived(
       key: Short,
       version: Short,
       frame: ByteBuffer
   ) extends Command
-
   case class SendCreate(
       request: CreateRequest,
       replyTo: ActorRef[CreateResponse]
@@ -26,11 +25,28 @@ object ConnectionActor {
       request: DeclarePublisherRequest,
       replyTo: ActorRef[DeclarePublisherResponse]
   ) extends Command
-  case class SendPublish(request: PublishRequest)
-      extends Command // Fire-and-forget
+  case class SendPublish(request: PublishRequest)         extends Command // Fire-and-forget
+  case class RegisterPublisher(
+      id: Byte,
+      actor: ActorRef[PublisherActor.Command]
+  ) extends Command
+  case class RegisterSubscriber(
+      id: Byte,
+      actor: ActorRef[SubscriberActor.Command]
+  ) extends Command
+  case class SendSubscribe(
+      request: SubscribeRequest,
+      replyTo: ActorRef[SubscribeResponse]
+  ) extends Command
+  case class SendUnsubscribe(request: UnsubscribeRequest) extends Command // Fire-and-forget
+  case class SendCredit(request: CreditRequest)           extends Command
+
+  // TODO: Add DeregisterPublisher command
+  // TODO: Add DeregisterSubscriber command
+  // TODO: Add SendDeletePublisher command (optional)
 
   sealed trait SendResult
-  case object FrameSent extends SendResult
+  case object FrameSent                extends SendResult
   case class SendFailed(error: String) extends SendResult
 
   def apply(config: ConnectionConfig): Behavior[Command] =
@@ -49,16 +65,9 @@ object ConnectionActor {
             val (key, version, frame) = connection.receiveFrame()
             context.self ! FrameReceived(key, version, frame)
           }
-        }.onComplete {
-          case Failure(exception) =>
-            context.log.error("Frame reading failed: {}", exception.getMessage)
-          case Success(_) =>
-            context.log.info("Frame reading stopped")
         }
-
-        //   - publishers = Map.empty (for later)
         //   - subscribers = Map.empty (for later)
-        connected(connection, 0, Map.empty)
+        connected(connection, 0, Map.empty, Map.empty, Map.empty)
       } catch {
         case e: Exception =>
           context.log.error("Connection failed: {}", e.getMessage)
@@ -88,8 +97,8 @@ object ConnectionActor {
     correlationId += 1
     val peerPropsReq = PeerPropertiesRequest(
       Map(
-        "product" -> "rabbitmq-streaming-scala",
-        "version" -> "0.1.0",
+        "product"  -> "rabbitmq-streaming-scala",
+        "version"  -> "0.1.0",
         "platform" -> "Scala"
       )
     )
@@ -106,13 +115,13 @@ object ConnectionActor {
     context.log.info("SASL handshake completed")
 
     correlationId += 1
-    val saslData =
+    val saslData    =
       s"\u0000${config.username}\u0000${config.password}".getBytes("UTF-8")
     val saslAuthReq = SaslAuthenticateRequest("PLAIN", saslData)
     connection.sendFrame(
       SaslAuthenticateCodec.encode(saslAuthReq, correlationId)
     )
-    val authResp =
+    val authResp    =
       receiveAndDecode(SaslAuthenticateCodec.decode, "SASL Authentication")
     if (authResp.responseCode != Protocol.ResponseCodes.OK) {
       throw new Exception(
@@ -129,7 +138,7 @@ object ConnectionActor {
     context.log.info("Tune response sent")
 
     correlationId += 1
-    val openReq = OpenRequest("/")
+    val openReq                    = OpenRequest("/")
     connection.sendFrame(OpenCodec.encode(openReq, correlationId))
     val openResponse: OpenResponse =
       receiveAndDecode(OpenCodec.decode, "Open")
@@ -144,112 +153,248 @@ object ConnectionActor {
   private def connected(
       connection: Connection,
       correlationId: Int,
-      pending: Map[Int, ActorRef[_]]
+      pending: Map[Int, ActorRef[_]],
+      publishers: Map[Byte, ActorRef[PublisherActor.Command]],
+      subscribers: Map[Byte, ActorRef[SubscriberActor.Command]]
   ): Behavior[Command] =
     Behaviors
-      .receiveMessage[Command] {
-        case SendCreate(request, replyTo) =>
-          val nextId = correlationId + 1
-          val buffer = CreateCodec.encode(request, nextId)
-          connection.sendFrame(buffer)
-          connected(connection, nextId, pending + (nextId -> replyTo))
-        case SendDeclarePublisher(request, replyTo) =>
-          val nextId = correlationId + 1
-          val buffer = DeclarePublisherCodec.encode(request, nextId)
-          connection.sendFrame(buffer)
-          connected(connection, nextId, pending + (nextId -> replyTo))
-        case SendPublish(request) =>
-          val buffer = PublishCodec.encode(request)
-          connection.sendFrame(buffer)
-          Behaviors.same
-        case Close =>
-          connection.close()
-          Behaviors.stopped
-        case FrameReceived(key, version, buffer) =>
-          println(s"Received frame: key=0x${key.toHexString}, version=$version")
-          key match {
-            case Protocol.Commands.CreateResponse =>
-              CreateCodec.decode(buffer, key, version) match {
-                case Right(response) =>
-                  pending.get(response.correlationId) match {
-                    case Some(actor) =>
-                      actor.asInstanceOf[ActorRef[CreateResponse]] ! response
-                    case None =>
-                      println(
-                        "Received CreateResponse with unknown correlation ID: {}",
-                        response.correlationId
-                      )
-                  }
-                  connected(
-                    connection,
-                    correlationId,
-                    pending - response.correlationId
-                  )
-                case Left(error) =>
-                  println(
-                    "Failed to decode CreateResponse: {}",
-                    error
-                  )
-                  Behaviors.same
-              }
-            case Protocol.Commands.DeclarePublisherResponse =>
-              DeclarePublisherCodec.decode(buffer, key, version) match {
-                case Right(response) =>
-                  pending.get(response.correlationId) match {
-                    case Some(actor) =>
-                      actor.asInstanceOf[
-                        ActorRef[DeclarePublisherResponse]
-                      ] ! response
-                    case None =>
-                      println(
-                        "Received DeclarePublisherResponse with unknown correlation ID: {}",
-                        response.correlationId
-                      )
-                  }
-                  connected(
-                    connection,
-                    correlationId,
-                    pending - response.correlationId
-                  )
-                case Left(error) =>
-                  println(
-                    "Failed to decode DeclarePublisherResponse: {}",
-                    error
-                  )
-                  Behaviors.same
-              }
-            case Protocol.Commands.PublishConfirm =>
-              PublishConfirmCodec.decode(buffer, key, version) match {
-                case Right(confirm) =>
-                  // TODO: Route to PublisherActor when we have publishers map
-                  println(
-                    s"PublishConfirm: publisherId=${confirm.publisherId}, publishingIds=${confirm.publishingIds}"
-                  )
-                  Behaviors.same
-                case Left(error) =>
-                  println(s"Failed to decode PublishConfirm: $error")
-                  Behaviors.same
-              }
+      .receive[Command] { (context, message) =>
+        message match {
+          case SendCreate(request, replyTo)           =>
+            val nextId = correlationId + 1
+            val buffer = CreateCodec.encode(request, nextId)
+            connection.sendFrame(buffer)
+            connected(
+              connection,
+              nextId,
+              pending + (nextId -> replyTo),
+              publishers,
+              subscribers
+            )
+          case SendDeclarePublisher(request, replyTo) =>
+            val nextId = correlationId + 1
+            val buffer = DeclarePublisherCodec.encode(request, nextId)
+            connection.sendFrame(buffer)
+            connected(
+              connection,
+              nextId,
+              pending + (nextId -> replyTo),
+              publishers,
+              subscribers
+            )
+          case SendPublish(request)                   =>
+            val buffer = PublishCodec.encode(request)
+            connection.sendFrame(buffer)
+            Behaviors.same
+          case RegisterPublisher(id, replyTo)         =>
+            connected(
+              connection,
+              correlationId,
+              pending,
+              publishers + (id -> replyTo),
+              subscribers
+            )
+          case RegisterSubscriber(id, replyTo)        =>
+            connected(
+              connection,
+              correlationId,
+              pending,
+              publishers,
+              subscribers + (id -> replyTo)
+            )
+          case SendSubscribe(request, replyTo)        =>
+            val nextId = correlationId + 1
+            val buffer = SubscribeCodec.encode(request, nextId)
+            connection.sendFrame(buffer)
+            connected(
+              connection,
+              nextId,
+              pending + (nextId -> replyTo),
+              publishers,
+              subscribers
+            )
+          case SendCredit(request)                    =>
+            val buffer = CreditCodec.encode(request)
+            connection.sendFrame(buffer)
+            Behaviors.same
+          case SendUnsubscribe(request)               =>
+            val nextId = correlationId + 1
+            val buffer = UnsubscribeCodec.encode(request, nextId)
+            connection.sendFrame(buffer)
+            connected(
+              connection,
+              nextId,
+              pending,
+              publishers,
+              subscribers - request.subscriptionId
+            )
+          case Close                                  =>
+            connection.close()
+            Behaviors.stopped
+          case FrameReceived(key, version, buffer)    =>
+            context.log.debug(
+              "Received frame: key=0x{}, version={}",
+              key.toHexString,
+              version
+            )
+            key match {
+              case Protocol.Commands.CreateResponse           =>
+                CreateCodec.decode(buffer, key, version) match {
+                  case Right(response) =>
+                    pending.get(response.correlationId) match {
+                      case Some(actor) =>
+                        actor.asInstanceOf[ActorRef[CreateResponse]] ! response
+                      case None        =>
+                        context.log.warn(
+                          "Received CreateResponse with unknown correlation ID: {}",
+                          response.correlationId
+                        )
+                    }
+                    connected(
+                      connection,
+                      correlationId,
+                      pending - response.correlationId,
+                      publishers,
+                      subscribers
+                    )
+                  case Left(error)     =>
+                    context.log.error(
+                      "Failed to decode CreateResponse: {}",
+                      error
+                    )
+                    Behaviors.same
+                }
+              case Protocol.Commands.DeclarePublisherResponse =>
+                DeclarePublisherCodec.decode(buffer, key, version) match {
+                  case Right(response) =>
+                    pending.get(response.correlationId) match {
+                      case Some(actor) =>
+                        actor.asInstanceOf[
+                          ActorRef[DeclarePublisherResponse]
+                        ] ! response
+                      case None        =>
+                        context.log.warn(
+                          "Received DeclarePublisherResponse with unknown correlation ID: {}",
+                          response.correlationId
+                        )
+                    }
+                    connected(
+                      connection,
+                      correlationId,
+                      pending - response.correlationId,
+                      publishers,
+                      subscribers
+                    )
+                  case Left(error)     =>
+                    context.log.error(
+                      "Failed to decode DeclarePublisherResponse: {}",
+                      error
+                    )
+                    Behaviors.same
+                }
+              case Protocol.Commands.PublishConfirm           =>
+                PublishConfirmCodec.decode(buffer, key, version) match {
+                  case Right(confirm) =>
+                    publishers.get(confirm.publisherId) match {
+                      case Some(actor) =>
+                        actor ! PublisherActor.PublishConfirmReceived(
+                          confirm.publishingIds
+                        )
+                      case None        =>
+                        context.log.warn(
+                          "No publisher registered for ID: {}",
+                          confirm.publisherId
+                        )
+                    }
+                    Behaviors.same
+                  case Left(error)    =>
+                    context.log.error(
+                      "Failed to decode PublishConfirm: {}",
+                      error
+                    )
+                    Behaviors.same
+                }
 
-            case Protocol.Commands.PublishError =>
-              PublishErrorCodec.decode(buffer, key, version) match {
-                case Right(error) =>
-                  println(
-                    s"PublishError: publisherId=${error.publisherId}, errors=${error.publishingErrors}"
-                  )
-                  Behaviors.same
-                case Left(err) =>
-                  println(s"Failed to decode PublishError: $err")
-                  Behaviors.same
-              }
-            case _ =>
-              println("Unknown frame type: key=0x{}", key.toHexString)
-              Behaviors.same
-          }
-        case _ =>
-          Behaviors.unhandled
+              case Protocol.Commands.PublishError        =>
+                PublishErrorCodec.decode(buffer, key, version) match {
+                  case Right(error) =>
+                    publishers.get(error.publisherId) match {
+                      case Some(actor) =>
+                        actor ! PublisherActor.PublishErrorReceived(
+                          error.publishingErrors
+                        )
+                      case None        =>
+                        context.log.warn(
+                          "No publisher registered for ID: {}",
+                          error.publisherId
+                        )
+                    }
+                    Behaviors.same
+                  case Left(err)    =>
+                    context.log.error("Failed to decode PublishError: {}", err)
+                    Behaviors.same
+                }
+              case Protocol.Commands.SubscribeResponse   =>
+                SubscribeCodec.decode(buffer, key, version) match {
+                  case Right(response) =>
+                    pending.get(response.correlationId) match {
+                      case Some(actor) =>
+                        actor.asInstanceOf[
+                          ActorRef[SubscribeResponse]
+                        ] ! response
+                      case None        =>
+                        context.log.warn(
+                          "Received SubscribeResponse with unknown correlation ID: {}",
+                          response.correlationId
+                        )
+                    }
+                    connected(
+                      connection,
+                      correlationId,
+                      pending - response.correlationId,
+                      publishers,
+                      subscribers
+                    )
+                  case Left(error)     =>
+                    context.log.error(
+                      "Failed to decode DeclarePublisherResponse: {}",
+                      error
+                    )
+                    Behaviors.same
+                }
+              case Protocol.Commands.UnsubscribeResponse =>
+                Behaviors.same
+
+              // TODO: Add Deliver message routing to subscribers
+              // case Protocol.Commands.Deliver =>
+              //   DeliverCodec.decode(buffer, key, version) match {
+              //     case Right(deliver) =>
+              //       subscribers.get(deliver.subscriptionId) match {
+              //         case Some(actor) =>
+              //           actor ! SubscriberActor.DeliverReceived(deliver.chunk)
+              //         case None =>
+              //           context.log.warn("No subscriber for ID: {}", deliver.subscriptionId)
+              //       }
+              //       Behaviors.same
+              //   }
+
+              case Protocol.Commands.Heartbeat =>
+                val heartbeat = HeartbeatCodec.encode()
+                connection.sendFrame(heartbeat)
+                Behaviors.same
+              case _                           =>
+                context.log.warn(
+                  "Unknown frame type: key=0x{}",
+                  key.toHexString
+                )
+                Behaviors.same
+            }
+          case _                                      =>
+            Behaviors.unhandled
+        }
       }
       .receiveSignal { case (context, org.apache.pekko.actor.typed.PostStop) =>
+        context.log.info("ConnectionActor stopping")
         scala.util.Try(connection.close())
         Behaviors.same
       }
