@@ -124,10 +124,9 @@ object PublisherActor {
               pending -- errorIds
             )
           case Close =>
-            // TODO: Deregister from ConnectionActor
-            // connectionActor ! ConnectionActor.DeregisterPublisher(publisherId)
-            // TODO: Optionally send DeletePublisher to RabbitMQ
-            // connectionActor ! ConnectionActor.SendDeletePublisher(DeletePublisherRequest(publisherId))
+            connectionActor ! ConnectionActor.SendDeletePublisher(
+              DeletePublisherRequest(publisherId)
+            )
             pending.values.foreach { replyTo =>
               replyTo ! PublishFailed("Publisher closed")
             }

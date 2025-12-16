@@ -22,9 +22,8 @@ object SubscriberActor {
       subscriptionId: Byte,
       stream: String,
       offsetSpec: OffsetSpecification,
-      initialCredit: Short = 10
-      // TODO: Add messageHandler parameter
-      // messageHandler: (Long, Array[Byte]) => Unit
+      initialCredit: Short = 10,
+      messageHandler: OsirisChunk => Unit
   ): Behavior[Command] =
     Behaviors.setup { context =>
       context.log.info(
@@ -55,9 +54,15 @@ object SubscriberActor {
         response.responseCode match {
           case Protocol.ResponseCodes.OK =>
             context.log.info("Subscribe successfully")
-            ready(connectionActor, subscriptionId, initialCredit, 0)
+            ready(
+              connectionActor,
+              subscriptionId,
+              initialCredit,
+              0,
+              messageHandler
+            )
           case code =>
-            context.log.error(s"Subscribe failed with code: {code}")
+            context.log.error(s"Subscribe failed with code: {}", code)
             Behaviors.stopped
         }
       } catch {
@@ -71,17 +76,15 @@ object SubscriberActor {
       connectionActor: ActorRef[ConnectionActor.Command],
       subscriptionId: Byte,
       creditRequested: Short,
-      creditUsed: Short
+      creditUsed: Short,
+      messageHandler: OsirisChunk => Unit
   ): Behavior[Command] =
     Behaviors
       .receive[Command] { (context, message) =>
         message match {
           case DeliverReceived(chunk) =>
-            // TODO: Call messageHandler to deliver messages to user
-            // For now, just log that we received messages
-            // Later: parse chunk.messages and call messageHandler for each
             context.log.info("Received {} messages", chunk.numEntries)
-            
+            messageHandler(chunk)
             val rawMessages = chunk.messages
             val numMessages = chunk.numEntries
             val newCreditUsed = (numMessages + creditUsed).toShort
@@ -99,7 +102,8 @@ object SubscriberActor {
               connectionActor,
               subscriptionId,
               newCreditRequested,
-              newCreditUsed
+              newCreditUsed,
+              messageHandler
             )
 
           case RequestCredit(credit) =>
@@ -110,7 +114,8 @@ object SubscriberActor {
               connectionActor,
               subscriptionId,
               (creditRequested + credit).toShort,
-              creditUsed
+              creditUsed,
+              messageHandler
             )
           case Close =>
             val request = UnsubscribeRequest(subscriptionId)
