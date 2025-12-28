@@ -21,6 +21,10 @@ object ConnectionActor {
       request: CreateRequest,
       replyTo: ActorRef[CreateResponse]
   ) extends Command
+  case class SendDelete(
+      request: DeleteRequest,
+      replyTo: ActorRef[DeleteResponse]
+  ) extends Command
   case class SendDeclarePublisher(
       request: DeclarePublisherRequest,
       replyTo: ActorRef[DeclarePublisherResponse]
@@ -172,6 +176,17 @@ object ConnectionActor {
               publishers,
               subscribers
             )
+          case SendDelete(request, replyTo) =>
+            val nextId = correlationId + 1
+            val buffer = DeleteCodec.encode(request, nextId)
+            connection.sendFrame(buffer)
+            connected(
+              connection,
+              nextId,
+              pending + (nextId -> replyTo),
+              publishers,
+              subscribers
+            )
           case SendDeclarePublisher(request, replyTo) =>
             val nextId = correlationId + 1
             val buffer = DeclarePublisherCodec.encode(request, nextId)
@@ -276,6 +291,32 @@ object ConnectionActor {
                     )
                     Behaviors.same
                 }
+              case Protocol.Commands.DeleteResponse =>
+                DeleteCodec.decode(buffer, key, version) match {
+                  case Right(response) =>
+                    pending.get(response.correlationId) match {
+                      case Some(actor) =>
+                        actor.asInstanceOf[ActorRef[DeleteResponse]] ! response
+                      case None =>
+                        context.log.warn(
+                          "Received DeleteResponse with unknown correlation ID: {}",
+                          response.correlationId
+                        )
+                    }
+                    connected(
+                      connection,
+                      correlationId,
+                      pending - response.correlationId,
+                      publishers,
+                      subscribers
+                    )
+                  case Left(error) =>
+                    context.log.error(
+                      "Failed to decode DeleteResponse: {}",
+                      error
+                    )
+                    Behaviors.same
+                }
               case Protocol.Commands.DeclarePublisherResponse =>
                 DeclarePublisherCodec.decode(buffer, key, version) match {
                   case Right(response) =>
@@ -376,20 +417,25 @@ object ConnectionActor {
                 }
               case Protocol.Commands.UnsubscribeResponse =>
                 Behaviors.same
-
-              // TODO: Add Deliver message routing to subscribers
-              // case Protocol.Commands.Deliver =>
-              //   DeliverCodec.decode(buffer, key, version) match {
-              //     case Right(deliver) =>
-              //       subscribers.get(deliver.subscriptionId) match {
-              //         case Some(actor) =>
-              //           actor ! SubscriberActor.DeliverReceived(deliver.chunk)
-              //         case None =>
-              //           context.log.warn("No subscriber for ID: {}", deliver.subscriptionId)
-              //       }
-              //       Behaviors.same
-              //   }
-
+              case Protocol.Commands.Deliver =>
+                DeliverCodec.decode(buffer, key, version) match {
+                  case Right(deliver) =>
+                    subscribers.get(deliver.subscriptionId) match {
+                      case Some(actor) =>
+                        actor ! SubscriberActor.DeliverReceived(
+                          deliver.osirisChunk
+                        )
+                      case None =>
+                        context.log.warn(
+                          "No subscriber for ID: {}",
+                          deliver.subscriptionId
+                        )
+                    }
+                    Behaviors.same
+                  case Left(error) =>
+                    context.log.error("Failed to decode Deliver: {}", error)
+                    Behaviors.same
+                }
               case Protocol.Commands.Heartbeat =>
                 val heartbeat = HeartbeatCodec.encode()
                 connection.sendFrame(heartbeat)
