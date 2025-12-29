@@ -1,8 +1,11 @@
-# RabbitMQ Streams Scala Client - TODO
+#+TITLE: RabbitMQ Streams Scala Client - TODO
+#+AUTHOR: Simon
+#+DATE: 2025-12-27
 
-## Completed
+* Things I want done
 
-**Core Protocol Implementation:**
+** DONE Core Protocol Implementation
+CLOSED: [2025-12-27 Sat]
 - All 30 codec files implemented
 - Connection management (handshake, heartbeat)
 - Stream operations (create, delete)
@@ -10,7 +13,8 @@
 - Subscribing with credit flow control
 - Full message routing
 
-**Actor System:**
+** DONE Actor System
+CLOSED: [2025-12-27 Sat]
 - ConnectionActor - manages protocol and TCP connection
 - PublisherActor - handles publishing with confirm tracking
 - SubscriberActor - handles consuming with credit flow
@@ -19,7 +23,8 @@
 - SubscriberSupervisor - manages subscriber actors with per-connection ID allocation
 - RabbitMQSupervisor - top-level supervisor coordinating all three
 
-**Client API:**
+** DONE Client API
+CLOSED: [2025-12-27 Sat]
 - RabbitMQClient - clean Future-based API
 - Publisher wrapper - publish() returns Future[Unit]
 - Subscriber wrapper - requestCredit() and close()
@@ -27,68 +32,65 @@
 - createStream, deleteStream
 - Automatic actor spawning and supervision
 
-**Testing:**
-- REPL tested end-to-end
-- Multiple publishers and subscribers working
-- Message delivery confirmed
-- Logging with logback
+** DONE [#A] Test Full Client API in REPL
+CLOSED: [2025-12-28 Sun 18:28]
+*** DONE Test createStream/deleteStream
+CLOSED: [2025-12-28 Sun 18:28]
+*** DONE Test Publisher.publish() with Future handling
+CLOSED: [2025-12-28 Sun 18:28]
+*** DONE Test multiple publishers/subscribers
+CLOSED: [2025-12-28 Sun 18:28]
+*** DONE Verify error handling
+CLOSED: [2025-12-28 Sun 18:28]
 
-## Next Steps
+** TODO [#A] Parse Individual Messages from Chunks
+*** TODO Implement ChunkParser object
+*** TODO Parse chunk.messages byte array into individual messages
+*** TODO Each message has length prefix + data
+*** TODO Update messageHandler signature to deliver parsed messages
+Current: =OsirisChunk => Unit=
+Target: =(Long, Array[Byte]) => Unit= (offset, data)
 
-### 1. Test Full Client API in REPL
-- Test createStream/deleteStream
-- Test Publisher.publish() with Future handling
-- Test multiple publishers/subscribers
-- Verify error handling
+** TODO [#B] Migrate to Pekko Streams TCP
+*** TODO Replace Connection.scala blocking I/O
+*** TODO Use Pekko Streams TCP for non-blocking socket operations
+*** TODO Update ConnectionActor to use Tcp().outgoingConnection
+*** TODO Remove Future-based frame reading
+*** TODO Better backpressure and integration with actor system
+*** TODO Production-ready connection management
 
-### 2. Parse Individual Messages from Chunks
-- Implement ChunkParser object
-- Parse chunk.messages byte array into individual messages
-- Each message has length prefix + data
-- Update messageHandler signature to deliver parsed messages
-- Current: `OsirisChunk => Unit`
-- Target: `(Long, Array[Byte]) => Unit` (offset, data)
+** TODO [#B] Add Pekko Streams Integration
+*** TODO Add Source API for consuming
+=subscriber.source: Source[Message, NotUsed]=
+Integrates with Pekko Streams pipelines
+*** TODO Add Sink API for publishing
+=publisher.sink: Sink[Array[Byte], Future[Done]]=
+Automatic backpressure via mapAsync
+*** TODO Keep callback API for simple use cases
+*** TODO Provide both APIs for flexibility
 
-### 3. Migrate to Pekko Streams TCP
-- Replace Connection.scala blocking I/O
-- Use Pekko Streams TCP for non-blocking socket operations
-- Update ConnectionActor to use Tcp().outgoingConnection
-- Remove Future-based frame reading
-- Better backpressure and integration with actor system
-- Production-ready connection management
+** TODO [#C] Write Documentation
+*** TODO Update README
+**** TODO Installation instructions
+**** TODO Quick start guide
+**** TODO API examples (callback and streams)
+**** TODO Architecture overview
+**** TODO Configuration options
+*** TODO Add scaladoc comments to public API
+*** TODO Document supervision strategies
+*** TODO Add troubleshooting section
 
-### 4. Add Pekko Streams Integration
-- Add Source API for consuming
-  - `subscriber.source: Source[Message, NotUsed]`
-  - Integrates with Pekko Streams pipelines
-- Add Sink API for publishing
-  - `publisher.sink: Sink[Array[Byte], Future[Done]]`
-  - Automatic backpressure via mapAsync
-- Keep callback API for simple use cases
-- Provide both APIs for flexibility
+** TODO [#C] Add Proper Tests
+*** TODO Unit tests for codecs
+*** TODO Integration tests for actors
+*** TODO Test supervision and restart behavior
+*** TODO Test error handling
+*** TODO Test backpressure and credit flow
+*** TODO Use Pekko TestKit
 
-### 5. Write Documentation
-- Update README with:
-  - Installation instructions
-  - Quick start guide
-  - API examples (callback and streams)
-  - Architecture overview
-  - Configuration options
-- Add scaladoc comments to public API
-- Document supervision strategies
-- Add troubleshooting section
+* Future Enhancements
 
-### 6. Add Proper Tests
-- Unit tests for codecs
-- Integration tests for actors
-- Test supervision and restart behavior
-- Test error handling
-- Test backpressure and credit flow
-- Use Pekko TestKit
-
-## Future Enhancements
-
-**Additional Features:**
+** Additional Features
 - Offset tracking and storage (StoreOffset, QueryOffset)
 - Super stream support (routing, partitions)
 - Stream statistics (StreamStats)
@@ -98,7 +100,7 @@
 - Automatic reconnection on failure
 - Metrics and monitoring hooks
 
-**Code Quality:**
+** Code Quality
 - Add context.watch for automatic deregistration
 - Handle max publisher/subscriber ID limits (255)
 - Add validation for stream names
@@ -106,13 +108,13 @@
 - Performance optimization
 - Memory leak prevention
 
-**Developer Experience:**
+** Developer Experience
 - Add builder pattern for configuration
 - Fluent API for creating publishers/subscribers
 - Better type safety (phantom types for connection state)
 - Compile-time validation where possible
 
-## Known Issues
+* Known Issues
 
 - Version handling in codecs needs cleanup (hardcoded checks)
 - Frame reader uses blocking I/O (migrate to Pekko Streams TCP)
@@ -123,10 +125,10 @@
 - No connection pooling
 - No automatic reconnection
 
-## Architecture Notes
+* Architecture Notes
 
-**Current Design:**
-```
+** Current Design
+#+BEGIN_SRC
 RabbitMQClient (user API)
   └─> RabbitMQSupervisor (root)
        ├─> ConnectionSupervisor (manages connections)
@@ -135,14 +137,14 @@ RabbitMQClient (user API)
             ├─> ConnectionActor (protocol + I/O)
             ├─> PublisherActor (publish logic)
             └─> SubscriberActor (consume logic)
-```
+#+END_SRC
 
-**Message Flow:**
+** Message Flow
 - Publishing: User → Publisher → PublisherActor → ConnectionActor → RabbitMQ
 - Consuming: RabbitMQ → ConnectionActor → SubscriberActor → messageHandler → User
 - Routing: ConnectionActor uses correlation IDs, publisher IDs, and subscription IDs
 
-**Supervision Strategy:**
+** Supervision Strategy
 - All actors use restart on failure
 - Supervisors track children and manage lifecycle
 - Clean separation between transport, protocol, and application layers
