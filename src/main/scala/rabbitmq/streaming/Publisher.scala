@@ -14,6 +14,10 @@ class Publisher(actor: ActorRef[PublisherActor.Command])(implicit
   implicit val ec: ExecutionContext = system.executionContext
 
   def publish(data: Array[Byte]): Future[Unit] = {
+    publishBatch(List(data))
+  }
+
+  def publishBatch(data: List[Array[Byte]]): Future[Unit] = {
     actor.ask(ref => PublisherActor.Publish(data, ref)).map {
       case PublisherActor.Published          => ()
       case PublisherActor.PublishFailed(err) =>

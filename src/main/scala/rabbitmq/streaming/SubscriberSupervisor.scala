@@ -12,7 +12,7 @@ object SubscriberSupervisor {
       stream: String,
       offsetSpec: OffsetSpecification,
       initialCredit: Short,
-      messageHandler: OsirisChunk => Unit,
+      messageHandler: (Long, Array[Byte]) => Unit,
       replyTo: ActorRef[ActorRef[SubscriberActor.Command]]
   ) extends Command
 

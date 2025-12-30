@@ -43,15 +43,20 @@ CLOSED: [2025-12-28 Sun 18:28]
 *** DONE Verify error handling
 CLOSED: [2025-12-28 Sun 18:28]
 
-** TODO [#A] Parse Individual Messages from Chunks
-*** TODO Implement ChunkParser object
-*** TODO Parse chunk.messages byte array into individual messages
-*** TODO Each message has length prefix + data
-*** TODO Update messageHandler signature to deliver parsed messages
+** DONE [4/4] [#A] Parse Individual Messages from Chunks
+CLOSED: [2025-12-29 Mon 18:17]
+*** DONE Implement ChunkParser object
+CLOSED: [2025-12-29 Mon 18:17]
+*** DONE Parse chunk.messages byte array into individual messages
+CLOSED: [2025-12-29 Mon 18:17]
+*** DONE Each message has length prefix + data
+CLOSED: [2025-12-29 Mon 18:15]
+*** DONE Update messageHandler signature to deliver parsed messages
+CLOSED: [2025-12-29 Mon 18:14]
 Current: =OsirisChunk => Unit=
 Target: =(Long, Array[Byte]) => Unit= (offset, data)
 
-** TODO [#B] Migrate to Pekko Streams TCP
+** TODO [0/6] [#B] Migrate to Pekko Streams TCP
 *** TODO Replace Connection.scala blocking I/O
 *** TODO Use Pekko Streams TCP for non-blocking socket operations
 *** TODO Update ConnectionActor to use Tcp().outgoingConnection
@@ -59,7 +64,7 @@ Target: =(Long, Array[Byte]) => Unit= (offset, data)
 *** TODO Better backpressure and integration with actor system
 *** TODO Production-ready connection management
 
-** TODO [#B] Add Pekko Streams Integration
+** TODO [0/4] [#B] Add Pekko Streams Integration
 *** TODO Add Source API for consuming
 =subscriber.source: Source[Message, NotUsed]=
 Integrates with Pekko Streams pipelines
@@ -68,9 +73,8 @@ Integrates with Pekko Streams pipelines
 Automatic backpressure via mapAsync
 *** TODO Keep callback API for simple use cases
 *** TODO Provide both APIs for flexibility
-
-** TODO [#C] Write Documentation
-*** TODO Update README
+** TODO [0/4] [#C] Write Documentation
+*** TODO [0/5] Update README
 **** TODO Installation instructions
 **** TODO Quick start guide
 **** TODO API examples (callback and streams)
@@ -79,8 +83,7 @@ Automatic backpressure via mapAsync
 *** TODO Add scaladoc comments to public API
 *** TODO Document supervision strategies
 *** TODO Add troubleshooting section
-
-** TODO [#C] Add Proper Tests
+** TODO [0/6] [#C] Add Proper Tests
 *** TODO Unit tests for codecs
 *** TODO Integration tests for actors
 *** TODO Test supervision and restart behavior

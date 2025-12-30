@@ -23,7 +23,7 @@ object SubscriberActor {
       stream: String,
       offsetSpec: OffsetSpecification,
       initialCredit: Short = 10,
-      messageHandler: OsirisChunk => Unit
+      messageHandler: (Long, Array[Byte]) => Unit
   ): Behavior[Command] =
     Behaviors.setup { context =>
       context.log.info(
@@ -77,35 +77,48 @@ object SubscriberActor {
       subscriptionId: Byte,
       creditRequested: Short,
       creditUsed: Short,
-      messageHandler: OsirisChunk => Unit
+      messageHandler: (Long, Array[Byte]) => Unit
   ): Behavior[Command] =
     Behaviors
       .receive[Command] { (context, message) =>
         message match {
           case DeliverReceived(chunk) =>
-            context.log.info("Received {} messages", chunk.numEntries)
-            messageHandler(chunk)
-            val rawMessages = chunk.messages
-            val numMessages = chunk.numEntries
-            val newCreditUsed = (numMessages + creditUsed).toShort
-            val newCreditRequested =
-              if (newCreditUsed > (creditRequested / 2)) {
-                val moreCredit: Short = 10
-                connectionActor ! ConnectionActor.SendCredit(
-                  CreditRequest(subscriptionId, moreCredit)
+            chunk.chunkType match {
+              case ChunkType.User =>
+                context.log.info("Received {} messages", chunk.numEntries)
+                val messages = ChunkParser.parse(chunk)
+                messages.foreach { msg =>
+                  messageHandler(msg.offset, msg.data)
+                }
+                val rawMessages = chunk.messages
+                val numMessages = chunk.numEntries
+                val newCreditUsed = (numMessages + creditUsed).toShort
+                val newCreditRequested =
+                  if (newCreditUsed > (creditRequested / 2)) {
+                    val moreCredit: Short = 10
+                    connectionActor ! ConnectionActor.SendCredit(
+                      CreditRequest(subscriptionId, moreCredit)
+                    )
+                    (creditRequested + moreCredit).toShort
+                  } else {
+                    creditRequested
+                  }
+                ready(
+                  connectionActor,
+                  subscriptionId,
+                  newCreditRequested,
+                  newCreditUsed,
+                  messageHandler
                 )
-                (creditRequested + moreCredit).toShort
-              } else {
-                creditRequested
-              }
-            ready(
-              connectionActor,
-              subscriptionId,
-              newCreditRequested,
-              newCreditUsed,
-              messageHandler
-            )
-
+              case _ =>
+                ready(
+                  connectionActor,
+                  subscriptionId,
+                  creditRequested,
+                  creditUsed,
+                  messageHandler
+                )
+            }
           case RequestCredit(credit) =>
             connectionActor ! ConnectionActor.SendCredit(
               CreditRequest(subscriptionId, credit)

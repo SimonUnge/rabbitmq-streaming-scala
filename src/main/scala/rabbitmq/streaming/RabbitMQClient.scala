@@ -37,7 +37,7 @@ class RabbitMQClient(supervisor: ActorRef[RabbitMQSupervisor.Command])(implicit
       stream: String,
       offsetSpec: OffsetSpecification,
       initialCredit: Short = 10,
-      messageHandler: OsirisChunk => Unit
+      messageHandler: (Long, Array[Byte]) => Unit
   ): Future[Subscriber] = {
     supervisor
       .ask(ref =>

@@ -10,7 +10,7 @@ object PublisherActor {
   sealed trait Command
 
   case class Publish(
-      data: Array[Byte],
+      data: List[Array[Byte]],
       replyTo: ActorRef[PublishResult]
   ) extends Command
   case class PublishConfirmReceived(
@@ -74,16 +74,21 @@ object PublisherActor {
     Behaviors
       .receive[Command] { (context, message) =>
         message match {
-          case Publish(data, replyTo) =>
-            val nextId = publishingId + 1
-            val msgs = List(PublishedMessage(nextId, data))
+          case Publish(messages, replyTo) =>
+            val msgs = messages.zipWithIndex.map { case (data, idx) =>
+              PublishedMessage(publishingId + 1 + idx, data)
+            }
+            val nextId = publishingId + messages.size
             val request = PublishRequest(publisherId, msgs)
             connectionActor ! ConnectionActor.SendPublish(request)
+            val newPending = msgs.foldLeft(pending) { case (acc, msg) =>
+              acc + (msg.publishingId -> replyTo)
+            }
             ready(
               connectionActor,
               publisherId,
               nextId,
-              pending + (nextId -> replyTo)
+              newPending
             )
           case PublishConfirmReceived(publishingIds) =>
             publishingIds.foreach { id =>
